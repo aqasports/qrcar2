@@ -1,0 +1,41 @@
+- [x] **Phase 1 — Auth + Clients + Vehicles**
+  - [x] Implement Auth.js configuration & API routes
+  - [x] Implement RBAC middleware & route protection
+  - [x] Create database client (`lib/db.ts`) & audit log helpers (`lib/audit.ts`)
+  - [x] Add seed script to create initial users & test clients/vehicles
+  - [x] Implement Clients back-office (CRUD, search, list)
+  - [x] Implement Vehicles back-office (CRUD, search, plate check, owner transfer)
+- [x] **Phase 2 — PVC Cards & Public QR View**
+  - [x] PVC card batch generator & DB insert
+  - [x] Export printable PDF sheet of QR codes (via @react-pdf/renderer + qrcode)
+  - [x] Card link/revoke UI on vehicle page (status machine check)
+  - [x] Implement public read-only route `/v/:token` (isolated bundle, no PII, deactivation view)
+- [x] **Phase 3 — Actions & Workers**
+  - [x] Workers CRUD back-office
+  - [x] Service Action CRUD form (notes, mileage, status, cost)
+  - [x] Worker assignment (lead/assist, multiple workers)
+  - [x] Action history list on vehicle page & public QR history view
+- [x] **Phase 4 — Parts & Inventory**
+  - [x] Parts/inventory CRUD back-office
+  - [x] Stock movements ledger view
+  - [x] Atomic stock-deduction transaction on action save/update
+  - [x] Manager stock limit override & log to audit
+  - [x] Manual stock adjustment with reason
+- [x] **Phase 5 — Invoicing**
+  - [x] Annual sequential invoice number generator (row lock transaction)
+  - [x] Invoice creation when action completed (parts + labor + tax)
+  - [x] Render invoice PDF and save to Netlify Blobs
+  - [x] Invoice PDF download buttons (admin & public QR pages)
+- [x] **Phase 6 — Dashboard, Reports & Audit Log**
+  - [x] Dashboard view with KPIs (revenue, shop vehicles, worker leaderboard, stock)
+  - [x] Export actions/clients/inventory to CSV
+  - [x] Audit log viewer back-office page
+- [x] **Phase 7 — Hardening & Netlify Deploy**
+  - [x] Add rate limiting to `/v/:token`
+  - [x] Final security audit on roles & routes
+  - [x] Create `netlify.toml` file
+  - [x] Deploy to Netlify & verify end-to-end
+- [x] **Action Form UX Rework**
+  - [x] Rework Log Action Modal (Vehicle details page) with searchable workers, mileage warning, cost calculator, and visual notes
+  - [x] Rework Action Details & Edit page (inline workers selection, searchable parts combobox with stock indicator, manager override check, live cost summary, stepper status)
+  - [x] Verify build and functionality

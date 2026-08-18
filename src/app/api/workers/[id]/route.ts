@@ -4,7 +4,7 @@ import { authOptions } from '@/lib/auth';
 import { sql } from '@/lib/db';
 import { logAudit } from '@/lib/audit';
 
-// PATCH /api/workers/[id] - Update worker
+// PATCH /api/workers/[id] - Update worker scoped to organization
 export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -15,7 +15,7 @@ export async function PATCH(
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const { role, id: userId } = session.user;
+  const { role, id: userId, organizationId } = session.user;
   if (role === 'technician') {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
@@ -24,8 +24,11 @@ export async function PATCH(
     const body = await req.json();
     const { full_name, phone, worker_role, hourly_rate, user_id, active } = body;
 
-    // Check worker exists
-    const check = await sql(`SELECT * FROM workers WHERE id = $1 LIMIT 1`, [workerId]);
+    // Check worker exists in this organization
+    const check = await sql(
+      `SELECT * FROM workers WHERE id = $1 AND organization_id = $2 LIMIT 1`,
+      [workerId, organizationId]
+    );
     if (check.length === 0) {
       return NextResponse.json({ error: 'Worker not found' }, { status: 404 });
     }
@@ -33,7 +36,8 @@ export async function PATCH(
 
     const hourlyRateNum = hourly_rate !== undefined ? parseFloat(hourly_rate) : undefined;
 
-    const updatedRows = await sql(`
+    const updatedRows = await sql(
+      `
       UPDATE workers
       SET full_name = COALESCE($1, full_name),
           phone = COALESCE($2, phone),
@@ -42,14 +46,17 @@ export async function PATCH(
           user_id = COALESCE($5, user_id),
           active = COALESCE($6, active),
           updated_at = CURRENT_TIMESTAMP
-      WHERE id = $7
+      WHERE id = $7 AND organization_id = $8
       RETURNING *
-    `, [full_name, phone, worker_role, hourlyRateNum, user_id, active, workerId]);
+    `,
+      [full_name, phone, worker_role, hourlyRateNum, user_id, active, workerId, organizationId]
+    );
 
     const updatedWorker = updatedRows[0];
 
     // Log audit
     await logAudit({
+      organizationId,
       userId,
       entityType: 'workers',
       entityId: workerId,
@@ -58,9 +65,9 @@ export async function PATCH(
         changes: {
           full_name: full_name !== oldWorker.full_name ? full_name : undefined,
           role: worker_role !== oldWorker.role ? worker_role : undefined,
-          active: active !== oldWorker.active ? active : undefined
-        }
-      }
+          active: active !== oldWorker.active ? active : undefined,
+        },
+      },
     });
 
     return NextResponse.json(updatedWorker);

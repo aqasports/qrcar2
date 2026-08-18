@@ -66,11 +66,57 @@ export async function getSqliteDb(): Promise<Database> {
 
 function initSchema(db: Database) {
   db.run(`
+    CREATE TABLE IF NOT EXISTS plans (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      slug TEXT UNIQUE NOT NULL,
+      tier TEXT NOT NULL,
+      price_monthly REAL DEFAULT 0.00,
+      active INTEGER DEFAULT 1,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS organizations (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      slug TEXT UNIQUE NOT NULL,
+      plan_id TEXT,
+      subscription_status TEXT DEFAULT 'active',
+      logo_url TEXT,
+      brand_color_primary TEXT DEFAULT '#0f172a',
+      brand_color_secondary TEXT DEFAULT '#f59e0b',
+      locale TEXT DEFAULT 'fr',
+      currency TEXT DEFAULT 'DZD',
+      wilaya TEXT DEFAULT '16 - Alger',
+      city TEXT DEFAULT 'Alger',
+      address TEXT,
+      phone TEXT,
+      email TEXT,
+      is_verified_pro INTEGER DEFAULT 1,
+      is_directory_listed INTEGER DEFAULT 1,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS branches (
+      id TEXT PRIMARY KEY,
+      organization_id TEXT NOT NULL,
+      name TEXT NOT NULL,
+      address TEXT,
+      phone TEXT,
+      is_main INTEGER DEFAULT 1,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
+
     CREATE TABLE IF NOT EXISTS users (
       id TEXT PRIMARY KEY,
+      organization_id TEXT,
       username TEXT UNIQUE NOT NULL,
+      email TEXT,
       password_hash TEXT NOT NULL,
-      role TEXT NOT NULL CHECK (role IN ('super_admin', 'manager', 'technician')),
+      role TEXT NOT NULL DEFAULT 'manager',
       active INTEGER DEFAULT 1,
       created_at TEXT DEFAULT CURRENT_TIMESTAMP,
       updated_at TEXT DEFAULT CURRENT_TIMESTAMP
@@ -78,6 +124,7 @@ function initSchema(db: Database) {
 
     CREATE TABLE IF NOT EXISTS clients (
       id TEXT PRIMARY KEY,
+      organization_id TEXT,
       full_name TEXT NOT NULL,
       phone TEXT UNIQUE NOT NULL,
       email TEXT,
@@ -89,6 +136,7 @@ function initSchema(db: Database) {
 
     CREATE TABLE IF NOT EXISTS suppliers (
       id TEXT PRIMARY KEY,
+      organization_id TEXT,
       name TEXT NOT NULL,
       contact_name TEXT,
       phone TEXT,
@@ -99,6 +147,7 @@ function initSchema(db: Database) {
 
     CREATE TABLE IF NOT EXISTS vehicles (
       id TEXT PRIMARY KEY,
+      organization_id TEXT,
       client_id TEXT,
       plate_number TEXT UNIQUE NOT NULL,
       make TEXT NOT NULL,
@@ -121,6 +170,7 @@ function initSchema(db: Database) {
 
     CREATE TABLE IF NOT EXISTS pvc_cards (
       id TEXT PRIMARY KEY,
+      organization_id TEXT,
       token TEXT UNIQUE NOT NULL,
       serial_label TEXT UNIQUE NOT NULL,
       status TEXT NOT NULL DEFAULT 'unassigned' CHECK (status IN ('unassigned', 'active', 'revoked', 'lost')),
@@ -132,6 +182,7 @@ function initSchema(db: Database) {
 
     CREATE TABLE IF NOT EXISTS workers (
       id TEXT PRIMARY KEY,
+      organization_id TEXT,
       user_id TEXT,
       full_name TEXT NOT NULL,
       phone TEXT,
@@ -144,6 +195,7 @@ function initSchema(db: Database) {
 
     CREATE TABLE IF NOT EXISTS parts (
       id TEXT PRIMARY KEY,
+      organization_id TEXT,
       supplier_id TEXT,
       name TEXT NOT NULL,
       category TEXT NOT NULL,
@@ -160,6 +212,7 @@ function initSchema(db: Database) {
 
     CREATE TABLE IF NOT EXISTS actions (
       id TEXT PRIMARY KEY,
+      organization_id TEXT,
       vehicle_id TEXT NOT NULL,
       type TEXT NOT NULL,
       description TEXT NOT NULL,
@@ -193,6 +246,7 @@ function initSchema(db: Database) {
 
     CREATE TABLE IF NOT EXISTS stock_movements (
       id TEXT PRIMARY KEY,
+      organization_id TEXT,
       part_id TEXT NOT NULL,
       action_id TEXT,
       type TEXT NOT NULL CHECK (type IN ('in', 'out', 'adjustment')),
@@ -204,6 +258,7 @@ function initSchema(db: Database) {
 
     CREATE TABLE IF NOT EXISTS invoices (
       id TEXT PRIMARY KEY,
+      organization_id TEXT,
       action_id TEXT NOT NULL,
       invoice_number TEXT UNIQUE NOT NULL,
       subtotal REAL NOT NULL,
@@ -220,6 +275,7 @@ function initSchema(db: Database) {
 
     CREATE TABLE IF NOT EXISTS appointments (
       id TEXT PRIMARY KEY,
+      organization_id TEXT,
       vehicle_id TEXT NOT NULL,
       service_type TEXT NOT NULL,
       preferred_date TEXT NOT NULL,
@@ -235,6 +291,7 @@ function initSchema(db: Database) {
 
     CREATE TABLE IF NOT EXISTS reminders (
       id TEXT PRIMARY KEY,
+      organization_id TEXT,
       vehicle_id TEXT NOT NULL,
       type TEXT NOT NULL CHECK (type IN ('oil_change', 'inspection', 'timing_belt', 'brakes', 'tires', 'custom')),
       title TEXT NOT NULL,
@@ -249,6 +306,7 @@ function initSchema(db: Database) {
 
     CREATE TABLE IF NOT EXISTS audit_logs (
       id TEXT PRIMARY KEY,
+      organization_id TEXT,
       user_id TEXT,
       entity_type TEXT NOT NULL,
       entity_id TEXT NOT NULL,
@@ -257,12 +315,18 @@ function initSchema(db: Database) {
       created_at TEXT DEFAULT CURRENT_TIMESTAMP
     );
 
-    -- Seed default credentials
-    INSERT OR IGNORE INTO users (id, username, password_hash, role, active)
+    -- Seed default organization & users
+    INSERT OR IGNORE INTO plans (id, name, slug, tier, price_monthly, active)
+    VALUES ('plan_pro', 'Pro Garage', 'pro', 'pro', 4900.00, 1);
+
+    INSERT OR IGNORE INTO organizations (id, name, slug, plan_id, subscription_status, brand_color_primary, locale, city)
+    VALUES ('org_main', 'Garage Pro Alger', 'garage-pro-alger', 'plan_pro', 'active', '#0f172a', 'fr', 'Alger');
+
+    INSERT OR IGNORE INTO users (id, organization_id, username, password_hash, role, active)
     VALUES 
-      ('usr_admin', 'admin', '$2a$10$7vN3nI4D5zUjU1U0x8v9Le4a8.G0qTq9.B6Z8j3d4b6r4v5y6z7w.', 'super_admin', 1),
-      ('usr_manager', 'manager', '$2a$10$7vN3nI4D5zUjU1U0x8v9Le4a8.G0qTq9.B6Z8j3d4b6r4v5y6z7w.', 'manager', 1),
-      ('usr_tech', 'tech', '$2a$10$7vN3nI4D5zUjU1U0x8v9Le4a8.G0qTq9.B6Z8j3d4b6r4v5y6z7w.', 'technician', 1);
+      ('usr_admin', 'org_main', 'admin', '$2a$10$7vN3nI4D5zUjU1U0x8v9Le4a8.G0qTq9.B6Z8j3d4b6r4v5y6z7w.', 'super_admin', 1),
+      ('usr_manager', 'org_main', 'manager', '$2a$10$7vN3nI4D5zUjU1U0x8v9Le4a8.G0qTq9.B6Z8j3d4b6r4v5y6z7w.', 'manager', 1),
+      ('usr_tech', 'org_main', 'tech', '$2a$10$7vN3nI4D5zUjU1U0x8v9Le4a8.G0qTq9.B6Z8j3d4b6r4v5y6z7w.', 'technician', 1);
   `);
 }
 

@@ -50,6 +50,8 @@ export default function VehiclesPage() {
 
   const [formError, setFormError] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [decodingVin, setDecodingVin] = useState(false);
+  const [vinMsg, setVinMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   const fetchVehicles = async (query = '') => {
     setLoading(true);
@@ -75,6 +77,53 @@ export default function VehiclesPage() {
       }
     } catch (err) {
       console.error(err);
+    }
+  };
+
+  const handleDecodeVin = async () => {
+    const cleanVin = vin.trim().toUpperCase();
+    if (cleanVin.length !== 17) {
+      setVinMsg({ type: 'error', text: 'Le numéro VIN doit comporter exactement 17 caractères.' });
+      return;
+    }
+
+    try {
+      setDecodingVin(true);
+      setVinMsg(null);
+
+      const res = await fetch(`/api/vin/decode?vin=${encodeURIComponent(cleanVin)}`);
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || 'Impossible de décoder ce numéro VIN.');
+      }
+
+      if (data.make) setMake(data.make);
+      if (data.model) setModel(data.model);
+      if (data.year) setYear(data.year.toString());
+      if (data.fuel_type) setFuelType(data.fuel_type.toLowerCase());
+      if (data.transmission_style) {
+        setTransmission(data.transmission_style.toLowerCase().includes('auto') ? 'automatique' : 'manuelle');
+      }
+
+      const engineParts = [
+        data.engine_displacement_l ? `${data.engine_displacement_l}L` : '',
+        data.horse_power ? `${data.horse_power} ch` : '',
+        data.engine_cylinders ? `(${data.engine_cylinders} cyl.)` : '',
+      ].filter(Boolean);
+
+      if (engineParts.length > 0) {
+        setEngineSpec(engineParts.join(' '));
+      }
+
+      setVinMsg({
+        type: 'success',
+        text: `Véhicule identifié : ${data.make || ''} ${data.model || ''} (${data.year || ''}) via ${data.source === 'cache' ? 'Cache Local' : 'NHTSA vPIC Global'}`,
+      });
+    } catch (err: any) {
+      setVinMsg({ type: 'error', text: err.message || 'Erreur lors du décodage VIN.' });
+    } finally {
+      setDecodingVin(false);
     }
   };
 
@@ -379,12 +428,28 @@ export default function VehiclesPage() {
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-xs font-semibold text-slate-300 mb-1.5">Numéro VIN / Châssis (Optionnel)</label>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <label className="block text-xs font-semibold text-slate-300">Numéro VIN / Châssis</label>
+                      <button
+                        type="button"
+                        onClick={handleDecodeVin}
+                        disabled={decodingVin || vin.trim().length !== 17}
+                        className="text-[11px] font-bold text-blue-400 hover:text-blue-300 disabled:opacity-40 transition flex items-center gap-1"
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                        </svg>
+                        <span>{decodingVin ? 'Décodage...' : 'Décoder (Auto-Fill)'}</span>
+                      </button>
+                    </div>
                     <input
                       type="text"
-                      placeholder="17 caractères"
+                      placeholder="17 caractères ISO 3779"
                       value={vin}
-                      onChange={(e) => setVin(e.target.value)}
+                      onChange={(e) => {
+                        setVin(e.target.value);
+                        setVinMsg(null);
+                      }}
                       maxLength={17}
                       className="w-full bg-slate-950 border border-slate-800 focus:border-blue-500 rounded-xl px-3.5 py-2.5 text-slate-100 font-mono text-sm uppercase outline-none transition"
                     />
@@ -401,6 +466,26 @@ export default function VehiclesPage() {
                     />
                   </div>
                 </div>
+
+                {/* VIN Feedback Alert */}
+                {vinMsg && (
+                  <div
+                    className={`p-3 rounded-xl text-xs flex items-center gap-2 border ${
+                      vinMsg.type === 'success'
+                        ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+                        : 'bg-red-500/10 text-red-400 border-red-500/20'
+                    }`}
+                  >
+                    <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      {vinMsg.type === 'success' ? (
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      ) : (
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      )}
+                    </svg>
+                    <span>{vinMsg.text}</span>
+                  </div>
+                )}
               </div>
 
               {/* Section 3: Spécifications Techniques & Fluides */}

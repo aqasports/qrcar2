@@ -18,18 +18,27 @@ export async function GET(
   try {
     let isAuthorized = false;
 
-    // 1. If staff session exists, authorize
+    // 1. If staff session exists, verify it belongs to user's org
     if (session) {
-      isAuthorized = true;
+      const orgCheck = await sql(
+        `SELECT 1 FROM invoices WHERE id = $1 AND organization_id = $2 LIMIT 1`,
+        [invoiceId, session.user.organizationId]
+      );
+      if (orgCheck.length > 0 || session.user.isPlatformAdmin) {
+        isAuthorized = true;
+      }
     } else if (publicToken) {
       // 2. If public, verify card token matches the vehicle of the invoice
-      const verification = await sql(`
+      const verification = await sql(
+        `
         SELECT 1 FROM invoices i
         JOIN actions a ON i.action_id = a.id
         JOIN pvc_cards c ON c.vehicle_id = a.vehicle_id
         WHERE i.id = $1 AND c.token = $2 AND c.status = 'active'
         LIMIT 1
-      `, [invoiceId, publicToken]);
+      `,
+        [invoiceId, publicToken]
+      );
 
       if (verification.length > 0) {
         isAuthorized = true;

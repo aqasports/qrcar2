@@ -3,7 +3,15 @@ import { sql } from '@/lib/db';
 import { headers } from 'next/headers';
 import { getStore } from '@netlify/blobs';
 import QRCode from 'qrcode';
-import { ClientPortalView, VehicleData, PublicAction, AppointmentData, ReminderData } from './client-portal-view';
+import {
+  ClientPortalView,
+  VehicleData,
+  PublicAction,
+  AppointmentData,
+  ReminderData,
+  OrganizationBranding,
+} from './client-portal-view';
+import { Locale } from '@/lib/i18n/dictionaries';
 
 // Global serverless rate limiting helper using Netlify Blobs
 async function checkRateLimit(ip: string): Promise<boolean> {
@@ -13,7 +21,7 @@ async function checkRateLimit(ip: string): Promise<boolean> {
     const windowMs = 60 * 1000; // 1 minute sliding window
     const maxRequests = 60; // Max 60 requests/minute per IP
 
-    const record = await store.get(ip, { type: 'json' }) as { count: number; expiresAt: number } | null;
+    const record = (await store.get(ip, { type: 'json' })) as { count: number; expiresAt: number } | null;
 
     if (!record || now > record.expiresAt) {
       await store.setJSON(ip, { count: 1, expiresAt: now + windowMs });
@@ -34,8 +42,18 @@ async function checkRateLimit(ip: string): Promise<boolean> {
 
 // Function to fetch all public vehicle data server-side
 async function getPublicVehicleData(token: string) {
-  // 1. Fetch card details
-  const cardRows = await sql(`SELECT * FROM pvc_cards WHERE token = $1 LIMIT 1`, [token]);
+  // 1. Fetch card details & join organization branding
+  const cardRows = await sql(
+    `
+    SELECT c.*, o.name as org_name, o.logo_url as org_logo, o.brand_color_primary, o.brand_color_secondary, o.locale as org_locale, o.currency as org_currency
+    FROM pvc_cards c
+    LEFT JOIN organizations o ON c.organization_id = o.id
+    WHERE c.token = $1
+    LIMIT 1
+  `,
+    [token]
+  );
+
   if (cardRows.length === 0) {
     return { status: 'invalid' };
   }
@@ -49,17 +67,29 @@ async function getPublicVehicleData(token: string) {
     return { status: 'invalid' };
   }
 
+  const branding: OrganizationBranding = {
+    name: card.org_name || 'Garage Pro',
+    logoUrl: card.org_logo || null,
+    primaryColor: card.brand_color_primary || '#0f172a',
+    secondaryColor: card.brand_color_secondary || '#3b82f6',
+    locale: (card.org_locale as Locale) || 'fr',
+    currency: card.org_currency || 'DZD',
+  };
+
   // 2. Fetch vehicle details (enforce no client email/phone/address in response to protect PII)
-  const vehicleRows = await sql(`
+  const vehicleRows = await sql(
+    `
     SELECT v.id, v.plate_number, v.make, v.model, v.year, v.color, v.current_mileage,
            v.fuel_type, v.transmission, v.engine_spec, v.oil_type, v.tire_size,
            v.next_service_mileage, v.next_service_date, v.next_inspection_date,
            c.full_name as client_name
     FROM vehicles v
-    JOIN clients c ON v.client_id = c.id
+    LEFT JOIN clients c ON v.client_id = c.id
     WHERE v.id = $1
     LIMIT 1
-  `, [card.vehicle_id]);
+  `,
+    [card.vehicle_id]
+  );
 
   if (vehicleRows.length === 0) {
     return { status: 'invalid' };
@@ -68,33 +98,43 @@ async function getPublicVehicleData(token: string) {
   const vehicle: VehicleData = vehicleRows[0];
 
   // 3. Fetch actions history (completed or invoiced, client_visible_notes only, NO internal_notes)
-  const actionRows = await sql(`
+  const actionRows = await sql(
+    `
     SELECT a.id, a.type, a.description, a.client_visible_notes, a.mileage_at_service, a.date_in, a.date_out,
            (SELECT i.id FROM invoices i WHERE i.action_id = a.id AND i.status IN ('issued', 'paid') LIMIT 1) as invoice_id
     FROM actions a
     WHERE a.vehicle_id = $1 AND a.status IN ('completed', 'invoiced')
     ORDER BY a.date_in DESC
-  `, [vehicle.id]);
+  `,
+    [vehicle.id]
+  );
 
   // 4. Fetch appointments for this vehicle
-  const appointmentRows = await sql(`
+  const appointmentRows = await sql(
+    `
     SELECT id, service_type, preferred_date, preferred_time_slot, current_mileage, notes, status, garage_response, created_at
     FROM appointments
     WHERE vehicle_id = $1
     ORDER BY preferred_date DESC, created_at DESC
-  `, [vehicle.id]);
+  `,
+    [vehicle.id]
+  );
 
   // 5. Fetch reminders for this vehicle
-  const reminderRows = await sql(`
+  const reminderRows = await sql(
+    `
     SELECT id, type, title, due_date, due_mileage, status
     FROM reminders
     WHERE vehicle_id = $1
     ORDER BY created_at DESC
-  `, [vehicle.id]);
+  `,
+    [vehicle.id]
+  );
 
   return {
     status: 'active',
     vehicle,
+    branding,
     actions: actionRows as PublicAction[],
     appointments: appointmentRows as AppointmentData[],
     reminders: reminderRows as ReminderData[],
@@ -171,6 +211,7 @@ export default async function PublicQRPage({
     <ClientPortalView
       token={token}
       vehicle={data.vehicle}
+      branding={data.branding}
       actions={data.actions || []}
       appointments={data.appointments || []}
       reminders={data.reminders || []}

@@ -4,14 +4,14 @@ import { authOptions } from '@/lib/auth';
 import { sql } from '@/lib/db';
 import { logAudit } from '@/lib/audit';
 
-// POST /api/cards/link - Link a card to a vehicle
+// POST /api/cards/link - Link a card to a vehicle scoped to organization
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const { role, id: userId } = session.user;
+  const { role, id: userId, organizationId } = session.user;
   if (role === 'technician') {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
@@ -24,44 +24,57 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Missing token or vehicle_id' }, { status: 400 });
     }
 
-    // 1. Verify card exists and is unassigned
-    const cardRows = await sql(`SELECT * FROM pvc_cards WHERE token = $1 LIMIT 1`, [token]);
+    // 1. Verify card exists in this organization and is unassigned
+    const cardRows = await sql(
+      `SELECT * FROM pvc_cards WHERE token = $1 AND organization_id = $2 LIMIT 1`,
+      [token, organizationId]
+    );
     if (cardRows.length === 0) {
-      return NextResponse.json({ error: 'Card not found' }, { status: 404 });
+      return NextResponse.json({ error: 'Card not found in your garage inventory' }, { status: 404 });
     }
     const card = cardRows[0];
     if (card.status !== 'unassigned') {
       return NextResponse.json({ error: 'Card is already linked or revoked' }, { status: 400 });
     }
 
-    // 2. Verify vehicle exists
-    const vehicleCheck = await sql(`SELECT id FROM vehicles WHERE id = $1 LIMIT 1`, [vehicle_id]);
+    // 2. Verify vehicle exists in this organization
+    const vehicleCheck = await sql(
+      `SELECT id FROM vehicles WHERE id = $1 AND organization_id = $2 LIMIT 1`,
+      [vehicle_id, organizationId]
+    );
     if (vehicleCheck.length === 0) {
       return NextResponse.json({ error: 'Vehicle not found' }, { status: 404 });
     }
 
     // 3. Verify vehicle doesn't have an active card
-    const activeCheck = await sql(`
+    const activeCheck = await sql(
+      `
       SELECT id FROM pvc_cards 
-      WHERE vehicle_id = $1 AND status = 'active' 
+      WHERE vehicle_id = $1 AND status = 'active' AND organization_id = $2
       LIMIT 1
-    `, [vehicle_id]);
+    `,
+      [vehicle_id, organizationId]
+    );
 
     if (activeCheck.length > 0) {
       return NextResponse.json({ error: 'Vehicle already has an active QR card linked' }, { status: 400 });
     }
 
     // 4. Link the card
-    await sql(`
+    await sql(
+      `
       UPDATE pvc_cards
       SET status = 'active',
           vehicle_id = $1,
           linked_at = CURRENT_TIMESTAMP
-      WHERE token = $2
-    `, [vehicle_id, token]);
+      WHERE token = $2 AND organization_id = $3
+    `,
+      [vehicle_id, token, organizationId]
+    );
 
     // 5. Log audit
     await logAudit({
+      organizationId,
       userId,
       entityType: 'pvc_cards',
       entityId: card.id,
@@ -70,11 +83,14 @@ export async function POST(req: NextRequest) {
         vehicle_id,
         serial_label: card.serial_label,
         old_status: 'unassigned',
-        new_status: 'active'
-      }
+        new_status: 'active',
+      },
     });
 
-    return NextResponse.json({ message: 'Card successfully linked to vehicle', serial_label: card.serial_label });
+    return NextResponse.json({
+      message: 'Card successfully linked to vehicle',
+      serial_label: card.serial_label,
+    });
   } catch (error) {
     console.error('Failed to link card:', error);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });

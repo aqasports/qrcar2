@@ -4,7 +4,7 @@ import { authOptions } from '@/lib/auth';
 import { sql } from '@/lib/db';
 import { logAudit } from '@/lib/audit';
 
-// PATCH /api/invoices/[id] - Update invoice status (e.g. issue or mark paid)
+// PATCH /api/invoices/[id] - Update invoice status scoped to organization
 export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -15,7 +15,7 @@ export async function PATCH(
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const { role, id: userId } = session.user;
+  const { role, id: userId, organizationId } = session.user;
   if (role === 'technician') {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
@@ -28,8 +28,11 @@ export async function PATCH(
       return NextResponse.json({ error: 'Invalid status' }, { status: 400 });
     }
 
-    // Check invoice exists
-    const check = await sql(`SELECT * FROM invoices WHERE id = $1 LIMIT 1`, [invoiceId]);
+    // Check invoice exists in organization
+    const check = await sql(
+      `SELECT * FROM invoices WHERE id = $1 AND organization_id = $2 LIMIT 1`,
+      [invoiceId, organizationId]
+    );
     if (check.length === 0) {
       return NextResponse.json({ error: 'Invoice not found' }, { status: 404 });
     }
@@ -44,18 +47,22 @@ export async function PATCH(
     }
 
     // Update status
-    const updatedRows = await sql(`
+    const updatedRows = await sql(
+      `
       UPDATE invoices
       SET status = $1,
           updated_at = CURRENT_TIMESTAMP
-      WHERE id = $2
+      WHERE id = $2 AND organization_id = $3
       RETURNING *
-    `, [status, invoiceId]);
+    `,
+      [status, invoiceId, organizationId]
+    );
 
     const updated = updatedRows[0];
 
     // Log audit
     await logAudit({
+      organizationId,
       userId,
       entityType: 'invoices',
       entityId: invoiceId,
@@ -63,8 +70,8 @@ export async function PATCH(
       metadata: {
         invoice_number: invoice.invoice_number,
         old_status: invoice.status,
-        new_status: status
-      }
+        new_status: status,
+      },
     });
 
     return NextResponse.json(updated);

@@ -4,14 +4,14 @@ import { authOptions } from '@/lib/auth';
 import { sql } from '@/lib/db';
 import { logAudit } from '@/lib/audit';
 
-// POST /api/stock/adjust - Manual stock adjustment
+// POST /api/stock/adjust - Manual stock adjustment scoped to organization
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const { role, id: userId } = session.user;
+  const { role, id: userId, organizationId } = session.user;
   if (role === 'technician') {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
@@ -33,8 +33,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Quantity must be a valid integer' }, { status: 400 });
     }
 
-    // 1. Fetch part
-    const partRows = await sql(`SELECT * FROM parts WHERE id = $1 LIMIT 1`, [part_id]);
+    // 1. Fetch part within organization
+    const partRows = await sql(
+      `SELECT * FROM parts WHERE id = $1 AND organization_id = $2 LIMIT 1`,
+      [part_id, organizationId]
+    );
     if (partRows.length === 0) {
       return NextResponse.json({ error: 'Part not found' }, { status: 404 });
     }
@@ -58,17 +61,24 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Operation would result in negative stock' }, { status: 400 });
     }
 
-    // 2. Perform updates in a single block
-    await sql(`UPDATE parts SET quantity_in_stock = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2`, [newQty, part_id]);
+    // 2. Perform updates scoped to organization
+    await sql(
+      `UPDATE parts SET quantity_in_stock = $1, updated_at = CURRENT_TIMESTAMP WHERE id = $2 AND organization_id = $3`,
+      [newQty, part_id, organizationId]
+    );
 
-    // 3. Log stock movement
-    await sql(`
-      INSERT INTO stock_movements (part_id, type, quantity, reason, created_by)
-      VALUES ($1, $2, $3, $4, $5)
-    `, [part_id, type, ledgerQty, reason, userId]);
+    // 3. Log stock movement with organization_id
+    await sql(
+      `
+      INSERT INTO stock_movements (organization_id, part_id, type, quantity, reason, created_by)
+      VALUES ($1, $2, $3, $4, $5, $6)
+    `,
+      [organizationId, part_id, type, ledgerQty, reason, userId]
+    );
 
     // 4. Log audit
     await logAudit({
+      organizationId,
       userId,
       entityType: 'parts',
       entityId: part_id,
@@ -77,8 +87,8 @@ export async function POST(req: NextRequest) {
         adjustment_type: type,
         old_qty: part.quantity_in_stock,
         new_qty: newQty,
-        reason
-      }
+        reason,
+      },
     });
 
     return NextResponse.json({ message: 'Stock adjusted successfully', quantity_in_stock: newQty });

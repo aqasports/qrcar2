@@ -4,7 +4,7 @@ import { authOptions } from '@/lib/auth';
 import { sql } from '@/lib/db';
 import { logAudit } from '@/lib/audit';
 
-// GET /api/actions/[id] - Fetch service action detail
+// GET /api/actions/[id] - Fetch service action detail scoped to organization
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -15,19 +15,22 @@ export async function GET(
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const { role, id: userId } = session.user;
+  const { role, id: userId, organizationId } = session.user;
 
   try {
-    // 1. Fetch action with vehicle and client details
-    const actionRows = await sql(`
+    // 1. Fetch action with vehicle and client details within organization
+    const actionRows = await sql(
+      `
       SELECT a.*, v.plate_number, v.make, v.model, v.year, v.fuel_type, v.engine_spec,
              COALESCE(c.full_name, 'Non assigné / Stock') as client_name, c.phone as client_phone
       FROM actions a
-      JOIN vehicles v ON a.vehicle_id = v.id
+      JOIN vehicles v ON a.vehicle_id = v.id AND v.organization_id = $2
       LEFT JOIN clients c ON v.client_id = c.id
-      WHERE a.id = $1
+      WHERE a.id = $1 AND a.organization_id = $2
       LIMIT 1
-    `, [actionId]);
+    `,
+      [actionId, organizationId]
+    );
 
     if (actionRows.length === 0) {
       return NextResponse.json({ error: 'Action introuvable' }, { status: 404 });
@@ -36,41 +39,56 @@ export async function GET(
     const action = actionRows[0];
 
     // 2. Fetch assigned workers
-    const workers = await sql(`
-      SELECT aw.id as assignment_id, aw.worker_id, aw.role_on_job, aw.hours_spent, w.full_name, w.role as worker_role
+    const workers = await sql(
+      `
+      SELECT aw.action_id, aw.worker_id, aw.role_on_job, w.full_name, w.role as worker_role
       FROM action_workers aw
-      JOIN workers w ON aw.worker_id = w.id
+      JOIN workers w ON aw.worker_id = w.id AND w.organization_id = $2
       WHERE aw.action_id = $1
-    `, [actionId]);
+    `,
+      [actionId, organizationId]
+    );
 
     // 3. Fetch parts used in this action
     let partsUsed = [];
     if (role === 'technician') {
-      partsUsed = await sql(`
-        SELECT ap.id as item_id, ap.part_id, ap.quantity, p.name, p.sku, p.unit
+      partsUsed = await sql(
+        `
+        SELECT ap.part_id, ap.quantity, p.name, p.sku, p.unit
         FROM action_parts ap
-        JOIN parts p ON ap.part_id = p.id
+        JOIN parts p ON ap.part_id = p.id AND p.organization_id = $2
         WHERE ap.action_id = $1
-      `, [actionId]);
+      `,
+        [actionId, organizationId]
+      );
     } else {
-      partsUsed = await sql(`
-        SELECT ap.id as item_id, ap.part_id, ap.quantity, ap.unit_price_snapshot, p.name, p.sku, p.unit
+      partsUsed = await sql(
+        `
+        SELECT ap.part_id, ap.quantity, ap.unit_price_snapshot, p.name, p.sku, p.unit
         FROM action_parts ap
-        JOIN parts p ON ap.part_id = p.id
+        JOIN parts p ON ap.part_id = p.id AND p.organization_id = $2
         WHERE ap.action_id = $1
-      `, [actionId]);
+      `,
+        [actionId, organizationId]
+      );
     }
 
     // 4. Role validations for technician
     if (role === 'technician') {
-      const userWorkerRows = await sql(`SELECT id FROM workers WHERE user_id = $1 LIMIT 1`, [userId]);
+      const userWorkerRows = await sql(
+        `SELECT id FROM workers WHERE user_id = $1 AND organization_id = $2 LIMIT 1`,
+        [userId, organizationId]
+      );
       if (userWorkerRows.length === 0) {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
       }
       const workerId = userWorkerRows[0].id;
       const assigned = workers.some((w: any) => w.worker_id === workerId);
       if (!assigned) {
-        return NextResponse.json({ error: 'Accès interdit. Vous n\'êtes pas assigné à cette intervention.' }, { status: 403 });
+        return NextResponse.json(
+          { error: 'Accès interdit. Vous n\'êtes pas assigné à cette intervention.' },
+          { status: 403 }
+        );
       }
 
       delete action.labor_cost;
@@ -79,7 +97,10 @@ export async function GET(
     }
 
     // Fetch associated invoice
-    const invoiceRows = await sql(`SELECT id, invoice_number, total, status FROM invoices WHERE action_id = $1 LIMIT 1`, [actionId]);
+    const invoiceRows = await sql(
+      `SELECT id, invoice_number, total, status FROM invoices WHERE action_id = $1 AND organization_id = $2 LIMIT 1`,
+      [actionId, organizationId]
+    );
     const invoice = invoiceRows.length > 0 ? invoiceRows[0] : null;
 
     return NextResponse.json({ action, workers, parts: partsUsed, invoice });
@@ -89,7 +110,7 @@ export async function GET(
   }
 }
 
-// PATCH /api/actions/[id] - Update service action parameters (Everything editable)
+// PATCH /api/actions/[id] - Update service action parameters scoped to organization
 export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -100,7 +121,7 @@ export async function PATCH(
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const { role, id: userId } = session.user;
+  const { role, id: userId, organizationId } = session.user;
 
   try {
     const body = await req.json();
@@ -115,11 +136,14 @@ export async function PATCH(
       date_in,
       date_out,
       vehicle_id,
-      workers // Array<{ worker_id: string, role_on_job: string, hours_spent?: number }>
+      workers, // Array<{ worker_id: string, role_on_job: string }>
     } = body;
 
-    // Check action exists
-    const actionCheck = await sql(`SELECT * FROM actions WHERE id = $1 LIMIT 1`, [actionId]);
+    // Check action exists in this org
+    const actionCheck = await sql(
+      `SELECT * FROM actions WHERE id = $1 AND organization_id = $2 LIMIT 1`,
+      [actionId, organizationId]
+    );
     if (actionCheck.length === 0) {
       return NextResponse.json({ error: 'Intervention introuvable' }, { status: 404 });
     }
@@ -127,24 +151,36 @@ export async function PATCH(
 
     // Technician security constraints
     if (role === 'technician') {
-      const userWorkerRows = await sql(`SELECT id FROM workers WHERE user_id = $1 LIMIT 1`, [userId]);
+      const userWorkerRows = await sql(
+        `SELECT id FROM workers WHERE user_id = $1 AND organization_id = $2 LIMIT 1`,
+        [userId, organizationId]
+      );
       if (userWorkerRows.length === 0) {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
       }
       const workerId = userWorkerRows[0].id;
 
-      const assignCheck = await sql(`
+      const assignCheck = await sql(
+        `
         SELECT 1 FROM action_workers 
         WHERE action_id = $1 AND worker_id = $2 
         LIMIT 1
-      `, [actionId, workerId]);
+      `,
+        [actionId, workerId]
+      );
 
       if (assignCheck.length === 0) {
-        return NextResponse.json({ error: 'Accès interdit. Vous n\'êtes pas assigné à cette intervention.' }, { status: 403 });
+        return NextResponse.json(
+          { error: 'Accès interdit. Vous n\'êtes pas assigné à cette intervention.' },
+          { status: 403 }
+        );
       }
 
       if (labor_cost !== undefined || internal_notes !== undefined || workers !== undefined) {
-        return NextResponse.json({ error: 'Seuls les responsables peuvent modifier les coûts et l\'affectation du personnel.' }, { status: 403 });
+        return NextResponse.json(
+          { error: 'Seuls les responsables peuvent modifier les coûts et l\'affectation du personnel.' },
+          { status: 403 }
+        );
       }
     }
 
@@ -164,7 +200,8 @@ export async function PATCH(
     }
 
     // Update main action fields
-    const updatedActionRows = await sql(`
+    const updatedActionRows = await sql(
+      `
       UPDATE actions
       SET type = $1,
           description = $2,
@@ -177,47 +214,67 @@ export async function PATCH(
           date_out = $9,
           vehicle_id = $10,
           updated_at = CURRENT_TIMESTAMP
-      WHERE id = $11
+      WHERE id = $11 AND organization_id = $12
       RETURNING *
-    `, [
-      updatedType,
-      updatedDescription,
-      updatedClientNotes,
-      updatedInternalNotes,
-      updatedMileage,
-      updatedStatus,
-      updatedLabor,
-      updatedDateIn,
-      updatedDateOut,
-      updatedVehicleId,
-      actionId
-    ]);
+    `,
+      [
+        updatedType,
+        updatedDescription,
+        updatedClientNotes,
+        updatedInternalNotes,
+        updatedMileage,
+        updatedStatus,
+        updatedLabor,
+        updatedDateIn,
+        updatedDateOut,
+        updatedVehicleId,
+        actionId,
+        organizationId,
+      ]
+    );
 
     const updatedAction = updatedActionRows[0];
 
-    // Update worker assignments if provided (Allowed for manager/admin)
+    // Update worker assignments if provided
     if (workers !== undefined && Array.isArray(workers) && role !== 'technician') {
       await sql(`DELETE FROM action_workers WHERE action_id = $1`, [actionId]);
       for (const w of workers) {
         if (w.worker_id) {
-          await sql(`
-            INSERT INTO action_workers (action_id, worker_id, role_on_job, hours_spent)
-            VALUES ($1, $2, $3, $4)
-          `, [actionId, w.worker_id, w.role_on_job || 'lead', parseFloat(w.hours_spent) || 0.0]);
+          const workerValid = await sql(
+            `SELECT id FROM workers WHERE id = $1 AND organization_id = $2 LIMIT 1`,
+            [w.worker_id, organizationId]
+          );
+          if (workerValid.length > 0) {
+            await sql(
+              `
+              INSERT INTO action_workers (action_id, worker_id, role_on_job)
+              VALUES ($1, $2, $3)
+              ON CONFLICT (action_id, worker_id) DO NOTHING
+            `,
+              [actionId, w.worker_id, w.role_on_job || 'lead']
+            );
+          }
         }
       }
     }
 
     // Update vehicle odometer if mileage increased
     if (updatedMileage > 0) {
-      const vRows = await sql(`SELECT current_mileage FROM vehicles WHERE id = $1`, [updatedVehicleId]);
+      const vRows = await sql(
+        `SELECT current_mileage FROM vehicles WHERE id = $1 AND organization_id = $2`,
+        [updatedVehicleId, organizationId]
+      );
       if (vRows.length > 0 && updatedMileage > vRows[0].current_mileage) {
-        await sql(`UPDATE vehicles SET current_mileage = $1 WHERE id = $2`, [updatedMileage, updatedVehicleId]);
+        await sql(
+          `UPDATE vehicles SET current_mileage = $1 WHERE id = $2 AND organization_id = $3`,
+          [updatedMileage, updatedVehicleId, organizationId]
+        );
       }
     }
 
     // Log audit
     await logAudit({
+      organizationId,
       userId,
       entityType: 'actions',
       entityId: actionId,
@@ -225,12 +282,7 @@ export async function PATCH(
       metadata: {
         old_status: oldAction.status,
         new_status: updatedStatus,
-        changes: {
-          type: updatedType !== oldAction.type ? updatedType : undefined,
-          status: updatedStatus !== oldAction.status ? updatedStatus : undefined,
-          mileage: updatedMileage !== oldAction.mileage_at_service ? updatedMileage : undefined,
-        }
-      }
+      },
     });
 
     return NextResponse.json(updatedAction);
@@ -240,7 +292,7 @@ export async function PATCH(
   }
 }
 
-// DELETE /api/actions/[id] - Delete action (Allowed for super_admin & manager)
+// DELETE /api/actions/[id] - Delete action (Allowed for owner, super_admin & manager)
 export async function DELETE(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -251,41 +303,57 @@ export async function DELETE(
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const { role, id: userId } = session.user;
+  const { role, id: userId, organizationId } = session.user;
   if (role === 'technician') {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
   try {
     // 1. Check if an issued or paid invoice is attached
-    const invoiceRows = await sql(`SELECT id, status FROM invoices WHERE action_id = $1 AND status IN ('issued', 'paid')`, [actionId]);
+    const invoiceRows = await sql(
+      `SELECT id, status FROM invoices WHERE action_id = $1 AND organization_id = $2 AND status IN ('issued', 'paid')`,
+      [actionId, organizationId]
+    );
     if (invoiceRows.length > 0) {
-      return NextResponse.json({ error: 'Impossible de supprimer une intervention dont la facture a déjà été émise ou payée.' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Impossible de supprimer une intervention dont la facture a déjà été émise ou payée.' },
+        { status: 400 }
+      );
     }
 
     // 2. Atomically restore parts stock if parts were consumed
-    const actionParts = await sql(`SELECT part_id, quantity FROM action_parts WHERE action_id = $1`, [actionId]);
+    const actionParts = await sql(
+      `SELECT part_id, quantity FROM action_parts WHERE action_id = $1`,
+      [actionId]
+    );
     for (const ap of actionParts) {
-      await sql(`UPDATE parts SET quantity_in_stock = quantity_in_stock + $1 WHERE id = $2`, [ap.quantity, ap.part_id]);
-      await sql(`
-        INSERT INTO stock_movements (part_id, action_id, type, quantity, reason, created_by)
-        VALUES ($1, $2, 'adjustment', $3, 'Annulation suppression intervention', $4)
-      `, [ap.part_id, actionId, ap.quantity, userId]);
+      await sql(
+        `UPDATE parts SET quantity_in_stock = quantity_in_stock + $1 WHERE id = $2 AND organization_id = $3`,
+        [ap.quantity, ap.part_id, organizationId]
+      );
+      await sql(
+        `
+        INSERT INTO stock_movements (organization_id, part_id, reference_action_id, type, quantity, reason, created_by)
+        VALUES ($1, $2, $3, 'adjustment', $4, 'Annulation suppression intervention', $5)
+      `,
+        [organizationId, ap.part_id, actionId, ap.quantity, userId]
+      );
     }
 
     // 3. Delete action parts, workers, draft invoices, and the action itself
     await sql(`DELETE FROM action_parts WHERE action_id = $1`, [actionId]);
     await sql(`DELETE FROM action_workers WHERE action_id = $1`, [actionId]);
-    await sql(`DELETE FROM invoices WHERE action_id = $1`, [actionId]);
-    await sql(`DELETE FROM actions WHERE id = $1`, [actionId]);
+    await sql(`DELETE FROM invoices WHERE action_id = $1 AND organization_id = $2`, [actionId, organizationId]);
+    await sql(`DELETE FROM actions WHERE id = $1 AND organization_id = $2`, [actionId, organizationId]);
 
     // 4. Log audit
     await logAudit({
+      organizationId,
       userId,
       entityType: 'actions',
       entityId: actionId,
       action: 'delete',
-      metadata: { deleted_by: userId }
+      metadata: { deleted_by: userId },
     });
 
     return NextResponse.json({ message: 'Intervention supprimée avec succès et stock réajusté.' });

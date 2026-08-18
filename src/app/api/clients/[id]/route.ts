@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
-import { authOptions } from '../../../../lib/auth';
-import { sql } from '../../../../lib/db';
-import { logAudit } from '../../../../lib/audit';
+import { authOptions } from '@/lib/auth';
+import { sql } from '@/lib/db';
+import { logAudit } from '@/lib/audit';
 
-// GET /api/clients/[id] - Get details of a single client
+// GET /api/clients/[id] - Get details of a single client scoped to organization
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -15,42 +15,54 @@ export async function GET(
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const { role, id: userId } = session.user;
+  const { role, id: userId, organizationId } = session.user;
 
   try {
     // Role check for technicians
     if (role === 'technician') {
-      const workerRows = await sql(`SELECT id FROM workers WHERE user_id = $1 LIMIT 1`, [userId]);
+      const workerRows = await sql(
+        `SELECT id FROM workers WHERE user_id = $1 AND organization_id = $2 LIMIT 1`,
+        [userId, organizationId]
+      );
       if (workerRows.length === 0) {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
       }
       const workerId = workerRows[0].id;
 
       // Verify technician worked on this client's vehicles
-      const check = await sql(`
+      const check = await sql(
+        `
         SELECT 1 FROM clients c
-        JOIN vehicles v ON v.client_id = c.id
-        JOIN actions a ON a.vehicle_id = v.id
+        JOIN vehicles v ON v.client_id = c.id AND v.organization_id = $2
+        JOIN actions a ON a.vehicle_id = v.id AND a.organization_id = $2
         JOIN action_workers aw ON aw.action_id = a.id
-        WHERE c.id = $1 AND aw.worker_id = $2
+        WHERE c.id = $1 AND c.organization_id = $2 AND aw.worker_id = $3
         LIMIT 1
-      `, [clientId, workerId]);
+      `,
+        [clientId, organizationId, workerId]
+      );
 
       if (check.length === 0) {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
       }
     }
 
-    // Fetch client details
-    const clientRows = await sql(`SELECT * FROM clients WHERE id = $1 LIMIT 1`, [clientId]);
+    // Fetch client details within organization
+    const clientRows = await sql(
+      `SELECT * FROM clients WHERE id = $1 AND organization_id = $2 LIMIT 1`,
+      [clientId, organizationId]
+    );
     if (clientRows.length === 0) {
       return NextResponse.json({ error: 'Client not found' }, { status: 404 });
     }
 
     const client = clientRows[0];
 
-    // Fetch client vehicles
-    const vehicles = await sql(`SELECT * FROM vehicles WHERE client_id = $1`, [clientId]);
+    // Fetch client vehicles within organization
+    const vehicles = await sql(
+      `SELECT * FROM vehicles WHERE client_id = $1 AND organization_id = $2`,
+      [clientId, organizationId]
+    );
 
     return NextResponse.json({ client, vehicles });
   } catch (error) {
@@ -59,7 +71,7 @@ export async function GET(
   }
 }
 
-// PATCH /api/clients/[id] - Update client
+// PATCH /api/clients/[id] - Update client scoped to organization
 export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -70,9 +82,7 @@ export async function PATCH(
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const { role, id: userId } = session.user;
-
-  // Enforce permissions
+  const { role, id: userId, organizationId } = session.user;
   if (role === 'technician') {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
@@ -81,23 +91,33 @@ export async function PATCH(
     const body = await req.json();
     const { full_name, phone, email, address, notes } = body;
 
-    // Check client exists
-    const existing = await sql(`SELECT * FROM clients WHERE id = $1 LIMIT 1`, [clientId]);
+    // Check client exists in this org
+    const existing = await sql(
+      `SELECT * FROM clients WHERE id = $1 AND organization_id = $2 LIMIT 1`,
+      [clientId, organizationId]
+    );
     if (existing.length === 0) {
       return NextResponse.json({ error: 'Client not found' }, { status: 404 });
     }
     const oldClient = existing[0];
 
-    // Check duplicate phone if changed
+    // Check duplicate phone if changed within this organization
     if (phone && phone !== oldClient.phone) {
-      const dup = await sql(`SELECT id FROM clients WHERE phone = $1 LIMIT 1`, [phone]);
+      const dup = await sql(
+        `SELECT id FROM clients WHERE phone = $1 AND organization_id = $2 LIMIT 1`,
+        [phone, organizationId]
+      );
       if (dup.length > 0) {
-        return NextResponse.json({ error: 'A client with this phone number already exists' }, { status: 400 });
+        return NextResponse.json(
+          { error: 'A client with this phone number already exists in your garage' },
+          { status: 400 }
+        );
       }
     }
 
     // Update fields
-    const updatedRows = await sql(`
+    const updatedRows = await sql(
+      `
       UPDATE clients
       SET full_name = COALESCE($1, full_name),
           phone = COALESCE($2, phone),
@@ -105,14 +125,17 @@ export async function PATCH(
           address = COALESCE($4, address),
           notes = COALESCE($5, notes),
           updated_at = CURRENT_TIMESTAMP
-      WHERE id = $6
+      WHERE id = $6 AND organization_id = $7
       RETURNING *
-    `, [full_name, phone, email, address, notes, clientId]);
+    `,
+      [full_name, phone, email, address, notes, clientId, organizationId]
+    );
 
     const updatedClient = updatedRows[0];
 
     // Log audit
     await logAudit({
+      organizationId,
       userId,
       entityType: 'clients',
       entityId: clientId,
@@ -120,9 +143,9 @@ export async function PATCH(
       metadata: {
         changes: {
           full_name: full_name !== oldClient.full_name ? full_name : undefined,
-          phone: phone !== oldClient.phone ? phone : undefined
-        }
-      }
+          phone: phone !== oldClient.phone ? phone : undefined,
+        },
+      },
     });
 
     return NextResponse.json(updatedClient);

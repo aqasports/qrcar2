@@ -55,10 +55,9 @@ const styles = StyleSheet.create({
     color: '#94a3b8',
     marginTop: 2,
     textAlign: 'center',
-  }
+  },
 });
 
-// React PDF Document Component without JSX
 interface CardData {
   serial_label: string;
   qrDataUrl: string;
@@ -95,14 +94,14 @@ const QRSheetsDocument = ({ cards, baseUrl }: { cards: CardData[]; baseUrl: stri
   );
 };
 
-// GET /api/cards/print - Render A4 PDF sheet of QR codes
+// GET /api/cards/print - Render A4 PDF sheet of QR codes scoped to organization
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session) {
     return new NextResponse('Unauthorized', { status: 401 });
   }
 
-  const { role } = session.user;
+  const { role, organizationId } = session.user;
   if (role === 'technician') {
     return new NextResponse('Forbidden', { status: 403 });
   }
@@ -113,33 +112,36 @@ export async function GET(req: NextRequest) {
   try {
     let cards = [];
     if (serialsParam) {
-      const serialList = serialsParam.split(',').map(s => s.trim());
-      const placeholders = serialList.map((_, i) => `$${i + 1}`).join(', ');
-      cards = await sql(`
+      const serialList = serialsParam.split(',').map((s) => s.trim());
+      const placeholders = serialList.map((_, i) => `$${i + 2}`).join(', ');
+      cards = await sql(
+        `
         SELECT token, serial_label 
         FROM pvc_cards 
-        WHERE serial_label IN (${placeholders})
+        WHERE organization_id = $1 AND serial_label IN (${placeholders})
         ORDER BY serial_label ASC
-      `, serialList);
+      `,
+        [organizationId, ...serialList]
+      );
     } else {
-      // Default: fetch all unassigned cards
-      cards = await sql(`
+      cards = await sql(
+        `
         SELECT token, serial_label 
         FROM pvc_cards 
-        WHERE status = 'unassigned'
+        WHERE organization_id = $1 AND status = 'unassigned'
         ORDER BY serial_label ASC
         LIMIT 24
-      `);
+      `,
+        [organizationId]
+      );
     }
 
     if (cards.length === 0) {
       return new NextResponse('No cards found to print', { status: 404 });
     }
 
-    // Load PUBLIC_BASE_URL env var
     const baseUrl = process.env.PUBLIC_BASE_URL || 'https://garage-pro.netlify.app';
 
-    // Generate QR code data URLs
     const cardsWithQr: CardData[] = await Promise.all(
       cards.map(async (card) => {
         const qrUrl = `${baseUrl}/v/${card.token}`;
@@ -147,12 +149,11 @@ export async function GET(req: NextRequest) {
         return {
           serial_label: card.serial_label,
           token: card.token,
-          qrDataUrl
+          qrDataUrl,
         };
       })
     );
 
-    // Render PDF Document to Buffer
     const pdfBuffer = await renderToBuffer(
       React.createElement(QRSheetsDocument, { cards: cardsWithQr, baseUrl }) as any
     );

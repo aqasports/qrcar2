@@ -4,31 +4,36 @@ import { authOptions } from '@/lib/auth';
 import { sql } from '@/lib/db';
 import { logAudit } from '@/lib/audit';
 
-// GET /api/workers - List workers
+// GET /api/workers - List workers scoped to organization
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const { role } = session.user;
-  
+  const { role, organizationId } = session.user;
+
   try {
     let workers;
     if (role === 'technician') {
-      // Technicians can only see basic details, no hourly rate
-      workers = await sql(`
+      workers = await sql(
+        `
         SELECT id, full_name, phone, role, active, user_id 
         FROM workers 
-        WHERE active = true 
+        WHERE active = true AND organization_id = $1
         ORDER BY full_name ASC
-      `);
+      `,
+        [organizationId]
+      );
     } else {
-      // Admins and managers see everything
-      workers = await sql(`
+      workers = await sql(
+        `
         SELECT * FROM workers 
+        WHERE organization_id = $1
         ORDER BY full_name ASC
-      `);
+      `,
+        [organizationId]
+      );
     }
     return NextResponse.json(workers);
   } catch (error) {
@@ -37,14 +42,14 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// POST /api/workers - Create worker
+// POST /api/workers - Create worker scoped to organization
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const { role, id: userId } = session.user;
+  const { role, id: userId, organizationId } = session.user;
   if (role === 'technician') {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
@@ -57,23 +62,27 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
-    const hourlyRateNum = parseFloat(hourly_rate) || 0.00;
+    const hourlyRateNum = parseFloat(hourly_rate) || 0.0;
 
-    const rows = await sql(`
-      INSERT INTO workers (full_name, phone, role, hourly_rate, user_id)
-      VALUES ($1, $2, $3, $4, $5)
+    const rows = await sql(
+      `
+      INSERT INTO workers (organization_id, full_name, phone, role, hourly_rate, user_id)
+      VALUES ($1, $2, $3, $4, $5, $6)
       RETURNING *
-    `, [full_name, phone || null, worker_role, hourlyRateNum, user_id || null]);
+    `,
+      [organizationId, full_name, phone || null, worker_role, hourlyRateNum, user_id || null]
+    );
 
     const worker = rows[0];
 
     // Log audit
     await logAudit({
+      organizationId,
       userId,
       entityType: 'workers',
       entityId: worker.id,
       action: 'create',
-      metadata: { full_name, role: worker_role }
+      metadata: { full_name, role: worker_role },
     });
 
     return NextResponse.json(worker, { status: 201 });

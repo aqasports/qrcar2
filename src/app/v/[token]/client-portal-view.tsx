@@ -55,9 +55,19 @@ export interface ReminderData {
   status: string;
 }
 
+export interface OrganizationBranding {
+  name: string;
+  logoUrl: string | null;
+  primaryColor: string;
+  secondaryColor: string;
+  locale: 'fr' | 'ar' | 'en';
+  currency: string;
+}
+
 interface Props {
   token: string;
   vehicle: VehicleData;
+  branding?: OrganizationBranding;
   actions: PublicAction[];
   appointments: AppointmentData[];
   reminders: ReminderData[];
@@ -459,12 +469,13 @@ const WARNING_LIGHTS = [
 export function ClientPortalView({
   token,
   vehicle,
+  branding,
   actions,
   appointments: initialAppointments,
   reminders,
   qrDataUrl,
 }: Props) {
-  const [lang, setLang] = useState<'fr' | 'ar' | 'en'>('fr');
+  const [lang, setLang] = useState<'fr' | 'ar' | 'en'>(branding?.locale || 'fr');
   const [activeTab, setActiveTab] = useState<'history' | 'booking' | 'guide' | 'reminders'>('history');
   const [isFlipped, setIsFlipped] = useState(false);
   const [historyFilter, setHistoryFilter] = useState<'all' | 'maintenance' | 'repair' | 'inspection'>('all');

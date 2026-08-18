@@ -5,14 +5,14 @@ import { sql } from '@/lib/db';
 import { randomUUID } from 'crypto';
 import { logAudit } from '@/lib/audit';
 
-// POST /api/cards/batch - Generate N unassigned cards
+// POST /api/cards/batch - Generate N unassigned cards scoped to organization
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const { role, id: userId } = session.user;
+  const { role, id: userId, organizationId } = session.user;
   if (role === 'technician') {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
@@ -22,11 +22,17 @@ export async function POST(req: NextRequest) {
     const count = parseInt(body.count);
 
     if (isNaN(count) || count <= 0 || count > 100) {
-      return NextResponse.json({ error: 'Nombre de cartes invalide. Choisissez entre 1 et 100.' }, { status: 400 });
+      return NextResponse.json(
+        { error: 'Nombre de cartes invalide. Choisissez entre 1 et 100.' },
+        { status: 400 }
+      );
     }
 
-    // Determine starting serial number reliably across all SQL dialects
-    const existingCards = await sql(`SELECT serial_label FROM pvc_cards`);
+    // Determine starting serial number for this organization
+    const existingCards = await sql(
+      `SELECT serial_label FROM pvc_cards WHERE organization_id = $1`,
+      [organizationId]
+    );
     let maxVal = 0;
     if (Array.isArray(existingCards)) {
       for (const c of existingCards) {
@@ -49,33 +55,40 @@ export async function POST(req: NextRequest) {
     for (let i = 0; i < count; i++) {
       const serialNum = startSerial + i;
       const serialLabel = `CARD-${serialNum.toString().padStart(6, '0')}`;
-      const token = randomUUID(); // 128-bit crypto UUID
+      const token = randomUUID(); // 128-bit cryptographically secure UUID
 
       cardsToInsert.push({ token, serialLabel });
       generatedSerials.push(serialLabel);
     }
 
-    // Insert cards into database
+    // Insert cards into database with organization_id
     for (const card of cardsToInsert) {
-      await sql(`
-        INSERT INTO pvc_cards (token, serial_label, status)
-        VALUES ($1, $2, 'unassigned')
-      `, [card.token, card.serialLabel]);
+      await sql(
+        `
+        INSERT INTO pvc_cards (organization_id, token, serial_label, status)
+        VALUES ($1, $2, $3, 'unassigned')
+      `,
+        [organizationId, card.token, card.serialLabel]
+      );
     }
 
     // Log audit for batch generation
     await logAudit({
+      organizationId,
       userId,
       entityType: 'pvc_cards',
       entityId: userId,
       action: 'create',
-      metadata: { count, batch: generatedSerials }
+      metadata: { count, batch: generatedSerials },
     });
 
-    return NextResponse.json({
-      message: `${count} cartes PVC générées avec succès.`,
-      serials: generatedSerials
-    }, { status: 201 });
+    return NextResponse.json(
+      {
+        message: `${count} cartes PVC générées avec succès.`,
+        serials: generatedSerials,
+      },
+      { status: 201 }
+    );
   } catch (error) {
     console.error('Failed to generate batch of cards:', error);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });

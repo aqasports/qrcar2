@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
-import { authOptions } from '../../../../lib/auth';
-import { sql } from '../../../../lib/db';
-import { logAudit } from '../../../../lib/audit';
+import { authOptions } from '@/lib/auth';
+import { sql } from '@/lib/db';
+import { logAudit } from '@/lib/audit';
 
-// PATCH /api/appointments/[id] - Update appointment status or details
+// PATCH /api/appointments/[id] - Update appointment status or details scoped to organization
 export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -15,7 +15,7 @@ export async function PATCH(
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const { role, id: userId } = session.user;
+  const { role, id: userId, organizationId } = session.user;
   if (role === 'technician') {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
@@ -24,12 +24,16 @@ export async function PATCH(
     const body = await req.json();
     const { status, garage_response, preferred_date, preferred_time_slot, notes } = body;
 
-    const existingRows = await sql(`SELECT * FROM appointments WHERE id = $1 LIMIT 1`, [id]);
+    const existingRows = await sql(
+      `SELECT * FROM appointments WHERE id = $1 AND organization_id = $2 LIMIT 1`,
+      [id, organizationId]
+    );
     if (existingRows.length === 0) {
       return NextResponse.json({ error: 'Appointment not found' }, { status: 404 });
     }
 
-    const updatedRows = await sql(`
+    const updatedRows = await sql(
+      `
       UPDATE appointments
       SET status = COALESCE($1, status),
           garage_response = COALESCE($2, garage_response),
@@ -37,16 +41,19 @@ export async function PATCH(
           preferred_time_slot = COALESCE($4, preferred_time_slot),
           notes = COALESCE($5, notes),
           updated_at = CURRENT_TIMESTAMP
-      WHERE id = $6
+      WHERE id = $6 AND organization_id = $7
       RETURNING *
-    `, [status, garage_response, preferred_date, preferred_time_slot, notes, id]);
+    `,
+      [status, garage_response, preferred_date, preferred_time_slot, notes, id, organizationId]
+    );
 
     await logAudit({
+      organizationId,
       userId,
       entityType: 'appointments',
       entityId: id,
       action: 'update',
-      metadata: { status, garage_response }
+      metadata: { status, garage_response },
     });
 
     return NextResponse.json(updatedRows[0]);
@@ -67,17 +74,20 @@ export async function POST(
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const { id: userId } = session.user;
+  const { id: userId, organizationId } = session.user;
 
   try {
-    // 1. Fetch appointment with vehicle
-    const appRows = await sql(`
+    // 1. Fetch appointment with vehicle within organization
+    const appRows = await sql(
+      `
       SELECT a.*, v.current_mileage as v_mileage
       FROM appointments a
-      JOIN vehicles v ON a.vehicle_id = v.id
-      WHERE a.id = $1
+      JOIN vehicles v ON a.vehicle_id = v.id AND v.organization_id = $2
+      WHERE a.id = $1 AND a.organization_id = $2
       LIMIT 1
-    `, [id]);
+    `,
+      [id, organizationId]
+    );
 
     if (appRows.length === 0) {
       return NextResponse.json({ error: 'Appointment not found' }, { status: 404 });
@@ -89,7 +99,12 @@ export async function POST(
     // Map service_type to action type
     let actionType: 'repair' | 'maintenance' | 'inspection' | 'other' = 'maintenance';
     const sLower = (app.service_type || '').toLowerCase();
-    if (sLower.includes('réparation') || sLower.includes('frein') || sLower.includes('courroie') || sLower.includes('bruit')) {
+    if (
+      sLower.includes('réparation') ||
+      sLower.includes('frein') ||
+      sLower.includes('courroie') ||
+      sLower.includes('bruit')
+    ) {
       actionType = 'repair';
     } else if (sLower.includes('contrôle') || sLower.includes('diagnostic')) {
       actionType = 'inspection';
@@ -97,47 +112,58 @@ export async function POST(
 
     const actionDesc = `${app.service_type}${app.notes ? ` — ${app.notes}` : ''}`;
 
-    // 2. Create Action in DB
-    const actionRows = await sql(`
+    // 2. Create Action in DB scoped to organization
+    const actionRows = await sql(
+      `
       INSERT INTO actions (
-        vehicle_id, type, description, client_visible_notes, internal_notes,
+        organization_id, vehicle_id, type, description, client_visible_notes, internal_notes,
         mileage_at_service, status, labor_cost, created_by
-      ) VALUES ($1, $2, $3, $4, $5, $6, 'open', 0.00, $7)
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, 'open', 0.00, $8)
       RETURNING *
-    `, [
-      app.vehicle_id,
-      actionType,
-      actionDesc,
-      `Prise en charge suite au rendez-vous du ${new Date(app.preferred_date).toLocaleDateString()}`,
-      `Rendez-vous client source (Téléphone: ${app.client_phone || 'Non renseigné'})`,
-      mileageAtService,
-      userId,
-    ]);
+    `,
+      [
+        organizationId,
+        app.vehicle_id,
+        actionType,
+        actionDesc,
+        `Prise en charge suite au rendez-vous du ${new Date(app.preferred_date).toLocaleDateString()}`,
+        `Rendez-vous client source (Téléphone: ${app.client_phone || 'Non renseigné'})`,
+        mileageAtService,
+        userId,
+      ]
+    );
 
     const createdAction = actionRows[0];
 
     // 3. Mark appointment as completed
-    await sql(`
+    await sql(
+      `
       UPDATE appointments
       SET status = 'completed',
           garage_response = 'Converti en intervention atelier',
           updated_at = CURRENT_TIMESTAMP
-      WHERE id = $1
-    `, [id]);
+      WHERE id = $1 AND organization_id = $2
+    `,
+      [id, organizationId]
+    );
 
     await logAudit({
+      organizationId,
       userId,
       entityType: 'actions',
       entityId: createdAction.id,
       action: 'create',
-      metadata: { converted_from_appointment_id: id }
+      metadata: { converted_from_appointment_id: id },
     });
 
-    return NextResponse.json({
-      success: true,
-      action: createdAction,
-      message: 'Rendez-vous converti en intervention avec succès.'
-    }, { status: 201 });
+    return NextResponse.json(
+      {
+        success: true,
+        action: createdAction,
+        message: 'Rendez-vous converti en intervention avec succès.',
+      },
+      { status: 201 }
+    );
   } catch (error) {
     console.error('Failed to convert appointment to action:', error);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });

@@ -4,7 +4,7 @@ import { authOptions } from '@/lib/auth';
 import { sql } from '@/lib/db';
 import { logAudit } from '@/lib/audit';
 
-// POST /api/vehicles/[id]/transfer - Transfer vehicle ownership or detach pending new owner
+// POST /api/vehicles/[id]/transfer - Transfer vehicle ownership or detach scoped to organization
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -15,9 +15,7 @@ export async function POST(
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const { role, id: userId } = session.user;
-
-  // Enforce permissions
+  const { role, id: userId, organizationId } = session.user;
   if (role === 'technician') {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
@@ -26,8 +24,11 @@ export async function POST(
     const body = await req.json();
     const { new_client_id, detach_pending_sale, reason } = body;
 
-    // Check vehicle exists
-    const vehicleCheck = await sql(`SELECT * FROM vehicles WHERE id = $1 LIMIT 1`, [vehicleId]);
+    // Check vehicle exists in this organization
+    const vehicleCheck = await sql(
+      `SELECT * FROM vehicles WHERE id = $1 AND organization_id = $2 LIMIT 1`,
+      [vehicleId, organizationId]
+    );
     if (vehicleCheck.length === 0) {
       return NextResponse.json({ error: 'Véhicule introuvable' }, { status: 404 });
     }
@@ -36,17 +37,21 @@ export async function POST(
 
     // Case A: Detach owner pending sale / new owner
     if (detach_pending_sale || new_client_id === null || new_client_id === 'detach') {
-      const updatedRows = await sql(`
+      const updatedRows = await sql(
+        `
         UPDATE vehicles
         SET client_id = NULL,
             updated_at = CURRENT_TIMESTAMP
-        WHERE id = $1
+        WHERE id = $1 AND organization_id = $2
         RETURNING *
-      `, [vehicleId]);
+      `,
+        [vehicleId, organizationId]
+      );
 
       const updatedVehicle = updatedRows[0];
 
       await logAudit({
+        organizationId,
         userId,
         entityType: 'vehicles',
         entityId: vehicleId,
@@ -56,13 +61,13 @@ export async function POST(
           old_client_id: oldClientId,
           reason: reason || 'Véhicule vendu / en attente de cession',
           plate_number: vehicle.plate_number,
-        }
+        },
       });
 
       return NextResponse.json(updatedVehicle);
     }
 
-    // Case B: Assign or Transfer to a new registered client
+    // Case B: Assign or Transfer to a new registered client in the same organization
     if (!new_client_id) {
       return NextResponse.json({ error: 'Veuillez sélectionner un nouveau propriétaire' }, { status: 400 });
     }
@@ -71,27 +76,34 @@ export async function POST(
       return NextResponse.json({ error: 'Ce véhicule appartient déjà à ce client' }, { status: 400 });
     }
 
-    // Verify new client exists
-    const clientCheck = await sql(`SELECT id, full_name, phone FROM clients WHERE id = $1 LIMIT 1`, [new_client_id]);
+    // Verify new client exists in the same organization
+    const clientCheck = await sql(
+      `SELECT id, full_name, phone FROM clients WHERE id = $1 AND organization_id = $2 LIMIT 1`,
+      [new_client_id, organizationId]
+    );
     if (clientCheck.length === 0) {
       return NextResponse.json({ error: 'Le nouveau client sélectionné est introuvable' }, { status: 400 });
     }
 
     const newClient = clientCheck[0];
 
-    // Perform ownership transfer in-place (history survives)
-    const updatedRows = await sql(`
+    // Perform ownership transfer in-place
+    const updatedRows = await sql(
+      `
       UPDATE vehicles
       SET client_id = $1,
           updated_at = CURRENT_TIMESTAMP
-      WHERE id = $2
+      WHERE id = $2 AND organization_id = $3
       RETURNING *
-    `, [new_client_id, vehicleId]);
+    `,
+      [new_client_id, vehicleId, organizationId]
+    );
 
     const updatedVehicle = updatedRows[0];
 
     // Log audit
     await logAudit({
+      organizationId,
       userId,
       entityType: 'vehicles',
       entityId: vehicleId,
@@ -103,7 +115,7 @@ export async function POST(
         new_client_name: newClient.full_name,
         plate_number: vehicle.plate_number,
         reason: reason || 'Changement de propriétaire',
-      }
+      },
     });
 
     return NextResponse.json(updatedVehicle);

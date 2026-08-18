@@ -11,7 +11,7 @@ async function checkPublicRateLimit(ip: string, action: string, maxRequests = 10
     const now = Date.now();
     const windowMs = 5 * 60 * 1000; // 5 minutes window
 
-    const record = await store.get(key, { type: 'json' }) as { count: number; expiresAt: number } | null;
+    const record = (await store.get(key, { type: 'json' })) as { count: number; expiresAt: number } | null;
 
     if (!record || now > record.expiresAt) {
       await store.setJSON(key, { count: 1, expiresAt: now + windowMs });
@@ -35,7 +35,7 @@ export async function POST(req: NextRequest) {
   try {
     const headersList = await headers();
     const ip = headersList.get('x-nf-client-connection-ip') || headersList.get('x-forwarded-for') || '127.0.0.1';
-    
+
     // Rate limit public bookings: max 5 bookings per 5 minutes per IP
     const allowed = await checkPublicRateLimit(ip, 'booking', 5);
     if (!allowed) {
@@ -49,47 +49,59 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Token, service type, and preferred date are required.' }, { status: 400 });
     }
 
-    // 1. Verify Card & Token
+    // 1. Verify Card & Token, resolve organization_id
     const cardRows = await sql(`SELECT * FROM pvc_cards WHERE token = $1 LIMIT 1`, [token]);
     if (cardRows.length === 0 || cardRows[0].status !== 'active' || !cardRows[0].vehicle_id) {
       return NextResponse.json({ error: 'Invalid or inactive card token.' }, { status: 403 });
     }
 
-    const vehicleId = cardRows[0].vehicle_id;
+    const card = cardRows[0];
+    const vehicleId = card.vehicle_id;
+    const organizationId = card.organization_id;
 
     // 2. Optional: update vehicle current mileage if newer
     if (current_mileage && Number(current_mileage) > 0) {
       const parsedMileage = parseInt(current_mileage, 10);
-      await sql(`
+      await sql(
+        `
         UPDATE vehicles
         SET current_mileage = GREATEST(current_mileage, $1),
             updated_at = CURRENT_TIMESTAMP
-        WHERE id = $2
-      `, [parsedMileage, vehicleId]);
+        WHERE id = $2 AND organization_id = $3
+      `,
+        [parsedMileage, vehicleId, organizationId]
+      );
     }
 
-    // 3. Insert Appointment
-    const appointmentRows = await sql(`
+    // 3. Insert Appointment with organization_id
+    const appointmentRows = await sql(
+      `
       INSERT INTO appointments (
-        vehicle_id, service_type, preferred_date, preferred_time_slot,
+        organization_id, vehicle_id, service_type, preferred_date, preferred_time_slot,
         current_mileage, notes, client_phone, status
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending')
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'pending')
       RETURNING *
-    `, [
-      vehicleId,
-      service_type,
-      preferred_date,
-      preferred_time_slot || 'morning',
-      current_mileage ? parseInt(current_mileage, 10) : null,
-      notes || null,
-      client_phone || null,
-    ]);
+    `,
+      [
+        organizationId,
+        vehicleId,
+        service_type,
+        preferred_date,
+        preferred_time_slot || 'morning',
+        current_mileage ? parseInt(current_mileage, 10) : null,
+        notes || null,
+        client_phone || null,
+      ]
+    );
 
-    return NextResponse.json({
-      success: true,
-      message: 'Rendez-vous enregistré avec succès. Le garage confirmera votre créneau.',
-      appointment: appointmentRows[0],
-    }, { status: 201 });
+    return NextResponse.json(
+      {
+        success: true,
+        message: 'Rendez-vous enregistré avec succès. Le garage confirmera votre créneau.',
+        appointment: appointmentRows[0],
+      },
+      { status: 201 }
+    );
   } catch (error: any) {
     console.error('Failed to create appointment:', error);
     return NextResponse.json({ error: 'Une erreur est survenue lors de la réservation.' }, { status: 500 });

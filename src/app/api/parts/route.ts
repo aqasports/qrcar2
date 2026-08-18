@@ -4,26 +4,33 @@ import { authOptions } from '@/lib/auth';
 import { sql } from '@/lib/db';
 import { logAudit } from '@/lib/audit';
 
-// GET /api/parts - List parts
+// GET /api/parts - List parts scoped to organization
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
+  const { organizationId } = session.user;
   const { searchParams } = new URL(req.url);
   const search = searchParams.get('search') || '';
 
   try {
     let parts;
     if (search) {
-      parts = await sql(`
+      parts = await sql(
+        `
         SELECT * FROM parts
-        WHERE name ILIKE $1 OR sku ILIKE $1 OR category ILIKE $1
+        WHERE organization_id = $1 AND (name ILIKE $2 OR sku ILIKE $2 OR category ILIKE $2)
         ORDER BY name ASC
-      `, [`%${search}%`]);
+      `,
+        [organizationId, `%${search}%`]
+      );
     } else {
-      parts = await sql(`SELECT * FROM parts ORDER BY name ASC`);
+      parts = await sql(
+        `SELECT * FROM parts WHERE organization_id = $1 ORDER BY name ASC`,
+        [organizationId]
+      );
     }
     return NextResponse.json(parts);
   } catch (error) {
@@ -32,14 +39,14 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// POST /api/parts - Create a part in inventory
+// POST /api/parts - Create a part in inventory scoped to organization
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const { role, id: userId } = session.user;
+  const { role, id: userId, organizationId } = session.user;
   if (role === 'technician') {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
@@ -52,10 +59,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
     }
 
-    // Check duplicate SKU
-    const skuCheck = await sql(`SELECT id FROM parts WHERE sku = $1 LIMIT 1`, [sku]);
+    // Check duplicate SKU in this organization
+    const skuCheck = await sql(
+      `SELECT id FROM parts WHERE sku = $1 AND organization_id = $2 LIMIT 1`,
+      [sku, organizationId]
+    );
     if (skuCheck.length > 0) {
-      return NextResponse.json({ error: 'A part with this SKU already exists' }, { status: 400 });
+      return NextResponse.json({ error: 'A part with this SKU already exists in your garage' }, { status: 400 });
     }
 
     const buyPrice = parseFloat(purchase_price);
@@ -63,30 +73,37 @@ export async function POST(req: NextRequest) {
     const qty = parseInt(quantity_in_stock) || 0;
     const thresh = parseInt(min_stock_threshold) || 5;
 
-    // Insert part
-    const partRows = await sql(`
-      INSERT INTO parts (name, category, sku, unit, purchase_price, sale_price, quantity_in_stock, min_stock_threshold)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+    // Insert part with organization_id
+    const partRows = await sql(
+      `
+      INSERT INTO parts (organization_id, name, category, sku, unit, purchase_price, sale_price, quantity_in_stock, min_stock_threshold)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
       RETURNING *
-    `, [name, category, sku, unit || 'piece', buyPrice, sellPrice, qty, thresh]);
+    `,
+      [organizationId, name, category, sku, unit || 'piece', buyPrice, sellPrice, qty, thresh]
+    );
 
     const part = partRows[0];
 
     // Log stock movement for initial stock if > 0
     if (qty > 0) {
-      await sql(`
-        INSERT INTO stock_movements (part_id, type, quantity, reason, created_by)
-        VALUES ($1, 'in', $2, 'Initial stock import', $3)
-      `, [part.id, qty, userId]);
+      await sql(
+        `
+        INSERT INTO stock_movements (organization_id, part_id, type, quantity, reason, created_by)
+        VALUES ($1, $2, 'in', $3, 'Initial stock import', $4)
+      `,
+        [organizationId, part.id, qty, userId]
+      );
     }
 
     // Log audit
     await logAudit({
+      organizationId,
       userId,
       entityType: 'parts',
       entityId: part.id,
       action: 'create',
-      metadata: { name, sku, qty }
+      metadata: { name, sku, qty },
     });
 
     return NextResponse.json(part, { status: 201 });

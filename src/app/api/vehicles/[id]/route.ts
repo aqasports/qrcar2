@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
-import { authOptions } from '../../../../lib/auth';
-import { sql } from '../../../../lib/db';
-import { logAudit } from '../../../../lib/audit';
+import { authOptions } from '@/lib/auth';
+import { sql } from '@/lib/db';
+import { logAudit } from '@/lib/audit';
 
-// GET /api/vehicles/[id] - Fetch single vehicle with full details, card, actions, appointments & reminders
+// GET /api/vehicles/[id] - Fetch single vehicle with full details scoped to organization
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -15,39 +15,48 @@ export async function GET(
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const { role, id: userId } = session.user;
+  const { role, id: userId, organizationId } = session.user;
 
   try {
     // Role check for technicians
     if (role === 'technician') {
-      const workerRows = await sql(`SELECT id FROM workers WHERE user_id = $1 LIMIT 1`, [userId]);
+      const workerRows = await sql(
+        `SELECT id FROM workers WHERE user_id = $1 AND organization_id = $2 LIMIT 1`,
+        [userId, organizationId]
+      );
       if (workerRows.length === 0) {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
       }
       const workerId = workerRows[0].id;
 
       // Verify technician is assigned to an action for this vehicle
-      const check = await sql(`
+      const check = await sql(
+        `
         SELECT 1 FROM vehicles v
-        JOIN actions a ON a.vehicle_id = v.id
+        JOIN actions a ON a.vehicle_id = v.id AND a.organization_id = $2
         JOIN action_workers aw ON aw.action_id = a.id
-        WHERE v.id = $1 AND aw.worker_id = $2
+        WHERE v.id = $1 AND v.organization_id = $2 AND aw.worker_id = $3
         LIMIT 1
-      `, [vehicleId, workerId]);
+      `,
+        [vehicleId, organizationId, workerId]
+      );
 
       if (check.length === 0) {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
       }
     }
 
-    // Fetch vehicle with client name
-    const vehicleRows = await sql(`
+    // Fetch vehicle with client name in organization
+    const vehicleRows = await sql(
+      `
       SELECT v.*, c.full_name as client_name, c.phone as client_phone
       FROM vehicles v
-      JOIN clients c ON v.client_id = c.id
-      WHERE v.id = $1
+      LEFT JOIN clients c ON v.client_id = c.id
+      WHERE v.id = $1 AND v.organization_id = $2
       LIMIT 1
-    `, [vehicleId]);
+    `,
+      [vehicleId, organizationId]
+    );
 
     if (vehicleRows.length === 0) {
       return NextResponse.json({ error: 'Vehicle not found' }, { status: 404 });
@@ -56,49 +65,67 @@ export async function GET(
     const vehicle = vehicleRows[0];
 
     // Fetch active PVC card if any
-    const cardRows = await sql(`
+    const cardRows = await sql(
+      `
       SELECT id, token, serial_label, status, linked_at
       FROM pvc_cards
-      WHERE vehicle_id = $1 AND status = 'active'
+      WHERE vehicle_id = $1 AND status = 'active' AND organization_id = $2
       LIMIT 1
-    `, [vehicleId]);
+    `,
+      [vehicleId, organizationId]
+    );
     const activeCard = cardRows.length > 0 ? cardRows[0] : null;
 
     // Fetch action history
     let actions = [];
     if (role === 'technician') {
-      const workerRows = await sql(`SELECT id FROM workers WHERE user_id = $1 LIMIT 1`, [userId]);
+      const workerRows = await sql(
+        `SELECT id FROM workers WHERE user_id = $1 AND organization_id = $2 LIMIT 1`,
+        [userId, organizationId]
+      );
       const workerId = workerRows[0].id;
 
-      actions = await sql(`
+      actions = await sql(
+        `
         SELECT a.id, a.type, a.description, a.status, a.mileage_at_service, a.date_in, a.date_out
         FROM actions a
         JOIN action_workers aw ON aw.action_id = a.id
-        WHERE a.vehicle_id = $1 AND aw.worker_id = $2
+        WHERE a.vehicle_id = $1 AND a.organization_id = $2 AND aw.worker_id = $3
         ORDER BY a.date_in DESC
-      `, [vehicleId, workerId]);
+      `,
+        [vehicleId, organizationId, workerId]
+      );
     } else {
-      actions = await sql(`
+      actions = await sql(
+        `
         SELECT a.id, a.type, a.description, a.status, a.mileage_at_service, a.date_in, a.date_out, a.labor_cost
         FROM actions a
-        WHERE a.vehicle_id = $1
+        WHERE a.vehicle_id = $1 AND a.organization_id = $2
         ORDER BY a.date_in DESC
-      `, [vehicleId]);
+      `,
+        [vehicleId, organizationId]
+      );
     }
 
     // Fetch appointments for this vehicle
-    const appointments = await sql(`
+    const appointments = await sql(
+      `
       SELECT * FROM appointments
-      WHERE vehicle_id = $1
+      WHERE vehicle_id = $1 AND organization_id = $2
       ORDER BY preferred_date DESC, created_at DESC
-    `, [vehicleId]);
+    `,
+      [vehicleId, organizationId]
+    );
 
     // Fetch reminders for this vehicle
-    const reminders = await sql(`
+    const reminders = await sql(
+      `
       SELECT * FROM reminders
-      WHERE vehicle_id = $1
+      WHERE vehicle_id = $1 AND organization_id = $2
       ORDER BY created_at DESC
-    `, [vehicleId]);
+    `,
+      [vehicleId, organizationId]
+    );
 
     return NextResponse.json({ vehicle, activeCard, actions, appointments, reminders });
   } catch (error) {
@@ -107,7 +134,7 @@ export async function GET(
   }
 }
 
-// PATCH /api/vehicles/[id] - Update vehicle specs, mileage, and maintenance targets
+// PATCH /api/vehicles/[id] - Update vehicle specs, mileage, and maintenance targets scoped to organization
 export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -118,9 +145,7 @@ export async function PATCH(
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const { role, id: userId } = session.user;
-
-  // Enforce permissions
+  const { role, id: userId, organizationId } = session.user;
   if (role === 'technician') {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
@@ -128,28 +153,50 @@ export async function PATCH(
   try {
     const body = await req.json();
     const {
-      plate_number, make, model, year, vin, color, current_mileage,
-      fuel_type, transmission, engine_spec, oil_type, tire_size,
-      next_service_mileage, next_service_date, next_inspection_date
+      plate_number,
+      make,
+      model,
+      year,
+      vin,
+      color,
+      current_mileage,
+      fuel_type,
+      transmission,
+      engine_spec,
+      oil_type,
+      tire_size,
+      next_service_mileage,
+      next_service_date,
+      next_inspection_date,
     } = body;
 
-    // Check vehicle exists
-    const existing = await sql(`SELECT * FROM vehicles WHERE id = $1 LIMIT 1`, [vehicleId]);
+    // Check vehicle exists in this organization
+    const existing = await sql(
+      `SELECT * FROM vehicles WHERE id = $1 AND organization_id = $2 LIMIT 1`,
+      [vehicleId, organizationId]
+    );
     if (existing.length === 0) {
       return NextResponse.json({ error: 'Vehicle not found' }, { status: 404 });
     }
     const oldVehicle = existing[0];
 
-    // Check duplicate plate if changed
+    // Check duplicate plate if changed within this organization
     if (plate_number && plate_number !== oldVehicle.plate_number) {
-      const dup = await sql(`SELECT id FROM vehicles WHERE plate_number = $1 LIMIT 1`, [plate_number]);
+      const dup = await sql(
+        `SELECT id FROM vehicles WHERE plate_number = $1 AND organization_id = $2 LIMIT 1`,
+        [plate_number, organizationId]
+      );
       if (dup.length > 0) {
-        return NextResponse.json({ error: 'A vehicle with this plate number already exists' }, { status: 400 });
+        return NextResponse.json(
+          { error: 'A vehicle with this plate number already exists in your garage' },
+          { status: 400 }
+        );
       }
     }
 
     // Update fields
-    const updatedRows = await sql(`
+    const updatedRows = await sql(
+      `
       UPDATE vehicles
       SET plate_number = COALESCE($1, plate_number),
           make = COALESCE($2, make),
@@ -167,31 +214,35 @@ export async function PATCH(
           next_service_date = COALESCE($14, next_service_date),
           next_inspection_date = COALESCE($15, next_inspection_date),
           updated_at = CURRENT_TIMESTAMP
-      WHERE id = $16
+      WHERE id = $16 AND organization_id = $17
       RETURNING *
-    `, [
-      plate_number,
-      make,
-      model,
-      year ? parseInt(year) : null,
-      vin,
-      color,
-      current_mileage ? parseInt(current_mileage) : null,
-      fuel_type,
-      transmission,
-      engine_spec,
-      oil_type,
-      tire_size,
-      next_service_mileage ? parseInt(next_service_mileage) : null,
-      next_service_date || null,
-      next_inspection_date || null,
-      vehicleId
-    ]);
+    `,
+      [
+        plate_number,
+        make,
+        model,
+        year ? parseInt(year) : null,
+        vin,
+        color,
+        current_mileage ? parseInt(current_mileage) : null,
+        fuel_type,
+        transmission,
+        engine_spec,
+        oil_type,
+        tire_size,
+        next_service_mileage ? parseInt(next_service_mileage) : null,
+        next_service_date || null,
+        next_inspection_date || null,
+        vehicleId,
+        organizationId,
+      ]
+    );
 
     const updatedVehicle = updatedRows[0];
 
     // Log audit
     await logAudit({
+      organizationId,
       userId,
       entityType: 'vehicles',
       entityId: vehicleId,
@@ -199,9 +250,9 @@ export async function PATCH(
       metadata: {
         changes: {
           plate_number: plate_number !== oldVehicle.plate_number ? plate_number : undefined,
-          current_mileage: current_mileage !== oldVehicle.current_mileage ? current_mileage : undefined
-        }
-      }
+          current_mileage: current_mileage !== oldVehicle.current_mileage ? current_mileage : undefined,
+        },
+      },
     });
 
     return NextResponse.json(updatedVehicle);

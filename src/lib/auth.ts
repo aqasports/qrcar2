@@ -3,18 +3,32 @@ import CredentialsProvider from 'next-auth/providers/credentials';
 import bcrypt from 'bcryptjs';
 import { sql } from './db';
 
-// Extend NextAuth types
+export type UserRole = 'owner' | 'super_admin' | 'manager' | 'technician' | 'platform_admin';
+
+// Extend NextAuth type definitions
 declare module 'next-auth' {
   interface User {
     id: string;
     username: string;
-    role: 'super_admin' | 'manager' | 'technician';
+    organizationId?: string;
+    orgName?: string;
+    orgSlug?: string;
+    role: UserRole;
+    subscriptionStatus?: string;
+    planSlug?: string;
+    isPlatformAdmin: boolean;
   }
   interface Session {
     user: {
       id: string;
       username: string;
-      role: 'super_admin' | 'manager' | 'technician';
+      organizationId: string;
+      orgName: string;
+      orgSlug: string;
+      role: UserRole;
+      subscriptionStatus: string;
+      planSlug: string;
+      isPlatformAdmin: boolean;
     };
   }
 }
@@ -23,7 +37,13 @@ declare module 'next-auth/jwt' {
   interface JWT {
     id: string;
     username: string;
-    role: 'super_admin' | 'manager' | 'technician';
+    organizationId: string;
+    orgName: string;
+    orgSlug: string;
+    role: UserRole;
+    subscriptionStatus: string;
+    planSlug: string;
+    isPlatformAdmin: boolean;
   }
 }
 
@@ -32,40 +52,36 @@ export const authOptions: NextAuthOptions = {
     CredentialsProvider({
       name: 'Credentials',
       credentials: {
-        username: { label: 'Username', type: 'text' },
-        password: { label: 'Password', type: 'password' }
+        username: { label: 'Nom d’utilisateur / Email', type: 'text' },
+        password: { label: 'Mot de passe', type: 'password' },
       },
       async authorize(credentials) {
         if (!credentials?.username || !credentials?.password) {
           return null;
         }
 
-        // Query user from database
-        const rows = await sql(
-          `SELECT id, username, password_hash, role, active 
+        // 1. Fetch user by username or email
+        const userRows = await sql(
+          `SELECT id, username, email, password_hash, active, is_platform_admin 
            FROM users 
-           WHERE username = $1 LIMIT 1`,
-          [credentials.username]
+           WHERE username = $1 OR email = $1 
+           LIMIT 1`,
+          [credentials.username.trim()]
         );
 
-        if (rows.length === 0) {
+        if (userRows.length === 0) {
           return null;
         }
 
-        const user = rows[0];
+        const user = userRows[0];
 
         if (!user.active) {
           return null;
         }
 
-        // Check password hash with fallback for local demo accounts
-        const isDemoMatch = 
-          (user.username === 'admin' && credentials.password === 'admin123') ||
-          (user.username === 'manager' && credentials.password === 'manager123') ||
-          (user.username === 'tech' && credentials.password === 'tech123');
-
-        let isValid = isDemoMatch;
-        if (!isValid && user.password_hash) {
+        // 2. Validate password hash
+        let isValid = false;
+        if (user.password_hash) {
           try {
             isValid = await bcrypt.compare(credentials.password, user.password_hash);
           } catch (e) {
@@ -77,22 +93,61 @@ export const authOptions: NextAuthOptions = {
           return null;
         }
 
+        // 3. Fetch Organization Membership
+        const memberRows = await sql(
+          `SELECT 
+             om.role, 
+             om.organization_id, 
+             om.branch_id, 
+             o.name as org_name, 
+             o.slug as org_slug, 
+             o.subscription_status, 
+             p.slug as plan_slug
+           FROM organization_members om
+           JOIN organizations o ON om.organization_id = o.id
+           LEFT JOIN plans p ON o.plan_id = p.id
+           WHERE om.user_id = $1
+           LIMIT 1`,
+          [user.id]
+        );
+
+        const membership = memberRows[0] || null;
+
+        // Determine effective role
+        let effectiveRole: UserRole = 'technician';
+        if (user.is_platform_admin) {
+          effectiveRole = 'platform_admin';
+        } else if (membership) {
+          effectiveRole = membership.role as UserRole;
+        }
+
         return {
           id: user.id,
-          id_str: user.id, // Auth.js expects string id
           name: user.username,
           username: user.username,
-          role: user.role
-        } as any;
-      }
-    })
+          organizationId: membership?.organization_id || '',
+          orgName: membership?.org_name || 'Plateforme',
+          orgSlug: membership?.org_slug || 'platform',
+          role: effectiveRole,
+          subscriptionStatus: membership?.subscription_status || 'active',
+          planSlug: membership?.plan_slug || 'pro',
+          isPlatformAdmin: Boolean(user.is_platform_admin),
+        };
+      },
+    }),
   ],
   callbacks: {
     async jwt({ token, user }) {
       if (user) {
         token.id = user.id;
-        token.username = (user as any).username;
-        token.role = (user as any).role;
+        token.username = user.username;
+        token.organizationId = user.organizationId || '';
+        token.orgName = user.orgName || '';
+        token.orgSlug = user.orgSlug || '';
+        token.role = user.role;
+        token.subscriptionStatus = user.subscriptionStatus || 'active';
+        token.planSlug = user.planSlug || 'pro';
+        token.isPlatformAdmin = user.isPlatformAdmin;
       }
       return token;
     },
@@ -101,18 +156,24 @@ export const authOptions: NextAuthOptions = {
         session.user = {
           id: token.id,
           username: token.username,
-          role: token.role
+          organizationId: token.organizationId,
+          orgName: token.orgName,
+          orgSlug: token.orgSlug,
+          role: token.role,
+          subscriptionStatus: token.subscriptionStatus,
+          planSlug: token.planSlug,
+          isPlatformAdmin: token.isPlatformAdmin,
         };
       }
       return session;
-    }
+    },
   },
   session: {
     strategy: 'jwt',
-    maxAge: 30 * 24 * 60 * 60 // 30 days
+    maxAge: 30 * 24 * 60 * 60, // 30 days
   },
   pages: {
-    signIn: '/login'
+    signIn: '/login',
   },
-  secret: process.env.AUTH_SECRET
+  secret: process.env.AUTH_SECRET,
 };

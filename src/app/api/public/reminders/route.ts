@@ -9,7 +9,7 @@ async function checkRateLimit(ip: string): Promise<boolean> {
     const key = `reminder:${ip}`;
     const now = Date.now();
     const windowMs = 5 * 60 * 1000;
-    const record = await store.get(key, { type: 'json' }) as { count: number; expiresAt: number } | null;
+    const record = (await store.get(key, { type: 'json' })) as { count: number; expiresAt: number } | null;
 
     if (!record || now > record.expiresAt) {
       await store.setJSON(key, { count: 1, expiresAt: now + windowMs });
@@ -40,35 +40,44 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Token, type, and title are required.' }, { status: 400 });
     }
 
-    // 1. Verify Card Token
+    // 1. Verify Card Token & resolve organization_id
     const cardRows = await sql(`SELECT * FROM pvc_cards WHERE token = $1 LIMIT 1`, [token]);
     if (cardRows.length === 0 || cardRows[0].status !== 'active' || !cardRows[0].vehicle_id) {
       return NextResponse.json({ error: 'Carte inactive ou invalide.' }, { status: 403 });
     }
 
-    const vehicleId = cardRows[0].vehicle_id;
+    const card = cardRows[0];
+    const vehicleId = card.vehicle_id;
+    const organizationId = card.organization_id;
 
-    // 2. Insert Reminder
-    const reminderRows = await sql(`
+    // 2. Insert Reminder with organization_id
+    const reminderRows = await sql(
+      `
       INSERT INTO reminders (
-        vehicle_id, type, title, due_date, due_mileage, notification_channel, contact_target, status
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, 'active')
+        organization_id, vehicle_id, type, title, due_date, due_mileage, notification_channel, contact_target, status
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'active')
       RETURNING *
-    `, [
-      vehicleId,
-      type,
-      title,
-      due_date || null,
-      due_mileage ? parseInt(due_mileage, 10) : null,
-      notification_channel || 'calendar',
-      contact_target || null,
-    ]);
+    `,
+      [
+        organizationId,
+        vehicleId,
+        type,
+        title,
+        due_date || null,
+        due_mileage ? parseInt(due_mileage, 10) : null,
+        notification_channel || 'calendar',
+        contact_target || null,
+      ]
+    );
 
-    return NextResponse.json({
-      success: true,
-      message: 'Rappel configuré avec succès.',
-      reminder: reminderRows[0],
-    }, { status: 201 });
+    return NextResponse.json(
+      {
+        success: true,
+        message: 'Rappel configuré avec succès.',
+        reminder: reminderRows[0],
+      },
+      { status: 201 }
+    );
   } catch (error) {
     console.error('Failed to create reminder:', error);
     return NextResponse.json({ error: 'Erreur lors de la configuration du rappel.' }, { status: 500 });

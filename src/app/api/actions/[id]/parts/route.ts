@@ -4,7 +4,7 @@ import { authOptions } from '@/lib/auth';
 import { sql } from '@/lib/db';
 import { logAudit } from '@/lib/audit';
 
-// POST /api/actions/[id]/parts - Attach part to action
+// POST /api/actions/[id]/parts - Attach part to action scoped to organization
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -15,7 +15,7 @@ export async function POST(
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const { role, id: userId } = session.user;
+  const { role, id: userId, organizationId } = session.user;
 
   try {
     const body = await req.json();
@@ -26,8 +26,11 @@ export async function POST(
       return NextResponse.json({ error: 'Invalid part_id or quantity' }, { status: 400 });
     }
 
-    // 1. Verify action exists and is not invoiced
-    const actionRows = await sql(`SELECT id, status FROM actions WHERE id = $1 LIMIT 1`, [actionId]);
+    // 1. Verify action exists within organization and is not invoiced
+    const actionRows = await sql(
+      `SELECT id, status FROM actions WHERE id = $1 AND organization_id = $2 LIMIT 1`,
+      [actionId, organizationId]
+    );
     if (actionRows.length === 0) {
       return NextResponse.json({ error: 'Action not found' }, { status: 404 });
     }
@@ -38,24 +41,33 @@ export async function POST(
 
     // Role check for technicians: verify they are assigned to this action
     if (role === 'technician') {
-      const userWorkerRows = await sql(`SELECT id FROM workers WHERE user_id = $1 LIMIT 1`, [userId]);
+      const userWorkerRows = await sql(
+        `SELECT id FROM workers WHERE user_id = $1 AND organization_id = $2 LIMIT 1`,
+        [userId, organizationId]
+      );
       if (userWorkerRows.length === 0) {
         return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
       }
       const workerId = userWorkerRows[0].id;
-      const assignCheck = await sql(`
+      const assignCheck = await sql(
+        `
         SELECT 1 FROM action_workers 
         WHERE action_id = $1 AND worker_id = $2 
         LIMIT 1
-      `, [actionId, workerId]);
+      `,
+        [actionId, workerId]
+      );
 
       if (assignCheck.length === 0) {
         return NextResponse.json({ error: 'Forbidden. You are not assigned to this action.' }, { status: 403 });
       }
     }
 
-    // 2. Fetch part information
-    const partRows = await sql(`SELECT id, name, sale_price, quantity_in_stock, active FROM parts WHERE id = $1 LIMIT 1`, [part_id]);
+    // 2. Fetch part information within organization
+    const partRows = await sql(
+      `SELECT id, name, sale_price, quantity_in_stock, active FROM parts WHERE id = $1 AND organization_id = $2 LIMIT 1`,
+      [part_id, organizationId]
+    );
     if (partRows.length === 0) {
       return NextResponse.json({ error: 'Part not found in inventory' }, { status: 404 });
     }
@@ -70,19 +82,25 @@ export async function POST(
 
     if (hasInsufficientStock) {
       if (!force_override) {
-        return NextResponse.json({
-          error: 'insufficient_stock',
-          message: `Requested quantity (${qty}) exceeds available stock (${part.quantity_in_stock}).`,
-          available: part.quantity_in_stock
-        }, { status: 400 });
+        return NextResponse.json(
+          {
+            error: 'insufficient_stock',
+            message: `Requested quantity (${qty}) exceeds available stock (${part.quantity_in_stock}).`,
+            available: part.quantity_in_stock,
+          },
+          { status: 400 }
+        );
       }
 
       // If force_override is true, only allow managers or admins
       if (role === 'technician') {
-        return NextResponse.json({
-          error: 'insufficient_stock_denied',
-          message: 'Insufficient stock. Overrides require manager approval.'
-        }, { status: 403 });
+        return NextResponse.json(
+          {
+            error: 'insufficient_stock_denied',
+            message: 'Insufficient stock. Overrides require manager approval.',
+          },
+          { status: 403 }
+        );
       }
 
       overrideLogged = true;
@@ -91,45 +109,56 @@ export async function POST(
     const currentSalePrice = parseFloat(part.sale_price);
 
     // 4. Perform atomic operations: attach part, decrement stock, insert ledger
-    // Insert or update action_parts. Note: if updating, snapshot must still represent the original snapshot or update it?
-    // The rules say: "Insert the action_parts row with unit_price_snapshot = part's CURRENT sale_price at that instant"
-    // Let's do an upsert or check if already exists. If already exists, we increment quantity.
-    const existingJunction = await sql(`
+    const existingJunction = await sql(
+      `
       SELECT quantity FROM action_parts 
       WHERE action_id = $1 AND part_id = $2 
       LIMIT 1
-    `, [actionId, part_id]);
+    `,
+      [actionId, part_id]
+    );
 
     if (existingJunction.length > 0) {
-      // Update quantity
-      await sql(`
+      await sql(
+        `
         UPDATE action_parts
         SET quantity = quantity + $1
         WHERE action_id = $2 AND part_id = $3
-      `, [qty, actionId, part_id]);
+      `,
+        [qty, actionId, part_id]
+      );
     } else {
-      // Insert new association
-      await sql(`
+      await sql(
+        `
         INSERT INTO action_parts (action_id, part_id, quantity, unit_price_snapshot)
         VALUES ($1, $2, $3, $4)
-      `, [actionId, part_id, qty, currentSalePrice]);
+      `,
+        [actionId, part_id, qty, currentSalePrice]
+      );
     }
 
     // Decrement parts.quantity_in_stock
-    await sql(`
+    await sql(
+      `
       UPDATE parts
       SET quantity_in_stock = quantity_in_stock - $1
-      WHERE id = $2
-    `, [qty, part_id]);
+      WHERE id = $2 AND organization_id = $3
+    `,
+      [qty, part_id, organizationId]
+    );
 
-    // Insert stock movement ledger log
-    await sql(`
-      INSERT INTO stock_movements (part_id, type, quantity, reference_action_id, reason, created_by)
-      VALUES ($1, 'out', $2, $3, $4, $5)
-    `, [part_id, qty, actionId, `Used in action (Status: ${action.status})`, userId]);
+    // Insert stock movement ledger log scoped to organization
+    await sql(
+      `
+      INSERT INTO stock_movements (organization_id, part_id, type, quantity, reference_action_id, reason, created_by)
+      VALUES ($1, $2, 'out', $3, $4, $5, $6)
+    `,
+      [organizationId, part_id, qty, actionId, `Used in action (Status: ${action.status})`, userId]
+    );
 
     // 5. Log audit trail
     await logAudit({
+      organizationId,
       userId,
       entityType: 'actions',
       entityId: actionId,
@@ -138,15 +167,15 @@ export async function POST(
         part_attached: part_id,
         quantity: qty,
         unit_price_snapshot: currentSalePrice,
-        stock_overridden: overrideLogged
-      }
+        stock_overridden: overrideLogged,
+      },
     });
 
     return NextResponse.json({
       message: 'Part attached successfully',
       part_id,
       quantity_attached: qty,
-      unit_price_snapshot: currentSalePrice
+      unit_price_snapshot: currentSalePrice,
     });
   } catch (error) {
     console.error('Failed to attach part to action:', error);

@@ -12,6 +12,7 @@ export default function BillingPage() {
   const [data, setData] = useState<any>(null);
   const [checkoutLoading, setCheckoutLoading] = useState<string | null>(null);
   const [error, setError] = useState('');
+  const [exporting, setExporting] = useState(false);
 
   const fetchBilling = async () => {
     try {
@@ -54,10 +55,21 @@ export default function BillingPage() {
     }
   };
 
+  const handleExportData = async () => {
+    setExporting(true);
+    try {
+      window.location.href = '/api/organization/export';
+    } catch (err: any) {
+      alert('Erreur lors de l\'export des données.');
+    } finally {
+      setTimeout(() => setExporting(false), 2000);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-500"></div>
       </div>
     );
   }
@@ -67,16 +79,54 @@ export default function BillingPage() {
   const usage = details?.usage;
 
   return (
-    <div className="space-y-8 font-sans">
+    <div className="space-y-8 font-sans max-w-6xl">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-black text-slate-100 tracking-tight">Facturation & Abonnement Atelier</h1>
+          <h1 className="text-2xl font-black text-slate-100 tracking-tight flex items-center gap-3">
+            <svg className="w-6 h-6 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+            </svg>
+            Facturation & Forfaits Atelier
+          </h1>
           <p className="text-sm text-slate-400 mt-1">
-            Gérez votre abonnement SaaS, vos quotas d&apos;utilisation et vos paiements via BaridiMob / EDAHABIA / CIB.
+            Gérez votre abonnement SaaS, vos quotas d'utilisation et vos paiements via BaridiMob / EDAHABIA / CIB (Chargily Pay).
           </p>
         </div>
       </div>
+
+      {/* Dunning & Grace Period Alert Banner */}
+      {details?.isPastDue && (
+        <div className={`p-5 rounded-3xl border flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-xl ${
+          details.isGracePeriod
+            ? 'bg-amber-500/10 border-amber-500/30 text-amber-300'
+            : 'bg-red-500/10 border-red-500/30 text-red-300'
+        }`}>
+          <div className="flex items-start gap-3">
+            <div className={`p-2 rounded-xl mt-0.5 ${details.isGracePeriod ? 'bg-amber-500/20 text-amber-400' : 'bg-red-500/20 text-red-400'}`}>
+              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+            </div>
+            <div>
+              <p className="font-bold text-sm text-slate-100">
+                {details.isGracePeriod ? 'Période de grâce active' : 'Abonnement en souffrance'}
+              </p>
+              <p className="text-xs text-slate-300 mt-0.5 max-w-xl">
+                {details.dunningNotice}
+              </p>
+            </div>
+          </div>
+
+          <button
+            onClick={() => handleCheckout(currentPlan?.slug || 'pro')}
+            disabled={Boolean(checkoutLoading)}
+            className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl shadow-lg shadow-emerald-600/20 shrink-0 transition"
+          >
+            Régulariser par BaridiMob &rarr;
+          </button>
+        </div>
+      )}
 
       {/* Success / Canceled Notifications */}
       {successParam && (
@@ -98,7 +148,7 @@ export default function BillingPage() {
           </svg>
           <div>
             <p className="font-bold">Paiement interrompu</p>
-            <p className="text-xs text-amber-400/80">La session de paiement Chargily n&apos;a pas abouti. Vous pouvez relancer le règlement à tout moment.</p>
+            <p className="text-xs text-amber-400/80">La session de paiement Chargily n'a pas abouti. Vous pouvez relancer le règlement à tout moment.</p>
           </div>
         </div>
       )}
@@ -129,7 +179,7 @@ export default function BillingPage() {
 
             <p className="text-xs text-slate-400 mt-2">
               {details?.isTrial && details.trialEndsAt && (
-                <span>Votre période d&apos;essai expire le <strong>{new Date(details.trialEndsAt).toLocaleDateString('fr-FR')}</strong>.</span>
+                <span>Votre période d'essai expire le <strong>{new Date(details.trialEndsAt).toLocaleDateString('fr-FR')}</strong>.</span>
               )}
               {details?.subscriptionStatus === 'active' && details.currentPeriodEndsAt && (
                 <span>Prochain renouvellement prévu le <strong>{new Date(details.currentPeriodEndsAt).toLocaleDateString('fr-FR')}</strong>.</span>
@@ -155,11 +205,11 @@ export default function BillingPage() {
           </div>
         </div>
 
-        {/* Quota Progress Gauges */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 mt-8 pt-8 border-t border-slate-800">
+        {/* Quota Progress Gauges Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mt-8 pt-8 border-t border-slate-800">
           <div>
             <div className="flex justify-between text-xs font-semibold mb-2">
-              <span className="text-slate-400">Succursales & Ateliers</span>
+              <span className="text-slate-400">Succursales Atelier</span>
               <span className="text-slate-200">{usage?.branchesCount} / {currentPlan?.maxBranches}</span>
             </div>
             <div className="w-full bg-slate-950 rounded-full h-2 overflow-hidden border border-slate-800">
@@ -172,7 +222,7 @@ export default function BillingPage() {
 
           <div>
             <div className="flex justify-between text-xs font-semibold mb-2">
-              <span className="text-slate-400">Utilisateurs & Techniciens</span>
+              <span className="text-slate-400">Comptes Utilisateurs</span>
               <span className="text-slate-200">{usage?.seatsCount} / {currentPlan?.maxSeats}</span>
             </div>
             <div className="w-full bg-slate-950 rounded-full h-2 overflow-hidden border border-slate-800">
@@ -185,7 +235,22 @@ export default function BillingPage() {
 
           <div>
             <div className="flex justify-between text-xs font-semibold mb-2">
-              <span className="text-slate-400">Studio Cartes & Visibilité</span>
+              <span className="text-slate-400">Appels API (Ce Mois)</span>
+              <span className={`font-mono text-[11px] font-bold ${usage?.isApiQuotaWarning ? 'text-amber-400' : 'text-slate-200'}`}>
+                {usage?.apiCallsThisMonth?.toLocaleString('fr-FR')} / {currentPlan?.maxApiCallsPerMonth?.toLocaleString('fr-FR')}
+              </span>
+            </div>
+            <div className="w-full bg-slate-950 rounded-full h-2 overflow-hidden border border-slate-800">
+              <div
+                className={`h-2 rounded-full transition-all ${usage?.isApiQuotaWarning ? 'bg-amber-500' : 'bg-purple-500'}`}
+                style={{ width: `${usage?.apiQuotaPercent || 0}%` }}
+              ></div>
+            </div>
+          </div>
+
+          <div>
+            <div className="flex justify-between text-xs font-semibold mb-2">
+              <span className="text-slate-400">Studio Cartes & SEO</span>
               <span className="text-emerald-400 font-bold uppercase text-[10px]">{currentPlan?.cardStudioTier}</span>
             </div>
             <div className="w-full bg-slate-950 rounded-full h-2 overflow-hidden border border-slate-800">
@@ -209,6 +274,7 @@ export default function BillingPage() {
               features: [
                 '1 Succursale atelier',
                 '3 Comptes utilisateurs',
+                '10 000 Appels API / mois',
                 'Cartes PVC pré-imprimées',
                 'Gestion clients & véhicules',
                 'Facturation & devis PDF',
@@ -220,13 +286,14 @@ export default function BillingPage() {
               name: 'Pro (Populaire)',
               price: '12,900 DZD',
               popular: true,
-              desc: 'Pour les ateliers en expansion souhaitant leur propre identité PVC.',
+              desc: 'Pour les ateliers en expansion souhaitant leur propre identité PVC et des intégrations.',
               features: [
                 'Jusqu’à 3 Succursales',
                 '15 Comptes utilisateurs',
+                '100 000 Appels API / mois',
                 'Studio Design Cartes PVC sur-mesure',
                 '20 Annonces Pièces / mois',
-                'Messagerie directe mécanique',
+                'App Store & Intégrations Illimitées',
                 'Annuaire garages : Featured (En vedette)',
               ],
             },
@@ -234,10 +301,11 @@ export default function BillingPage() {
               slug: 'enterprise',
               name: 'Enterprise',
               price: '29,900 DZD',
-              desc: 'Pour les réseaux de garages, concessionnaires et franchises.',
+              desc: 'Pour les réseaux de garages, concessionnaires, franchises et flottes.',
               features: [
                 'Succursales & Sièges illimités',
                 'Comptes utilisateurs illimités',
+                '1 000 000 Appels API / mois',
                 'Studio Design PVC + Marque Blanche',
                 'Annonces Marketplace illimitées',
                 'Annuaire garages : Spotlight (Top classement)',
@@ -249,72 +317,93 @@ export default function BillingPage() {
             return (
               <div
                 key={plan.slug}
-                className={`bg-slate-900 border rounded-3xl p-6 sm:p-8 flex flex-col justify-between transition ${
+                className={`p-6 sm:p-8 rounded-3xl border flex flex-col justify-between relative transition duration-200 ${
                   plan.popular
-                    ? 'border-blue-500/50 shadow-2xl shadow-blue-500/10 relative'
-                    : 'border-slate-800'
+                    ? 'bg-slate-900 border-purple-500/50 shadow-2xl shadow-purple-900/10'
+                    : 'bg-slate-900/60 border-slate-800 hover:border-slate-700'
                 }`}
               >
                 {plan.popular && (
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-blue-600 text-white font-extrabold text-[10px] uppercase tracking-wider px-3 py-1 rounded-full shadow-lg">
+                  <span className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 bg-purple-600 text-white text-[10px] font-black uppercase tracking-wider rounded-full shadow-lg shadow-purple-600/30">
                     Recommandé
-                  </div>
+                  </span>
                 )}
 
                 <div>
-                  <div className="flex items-center justify-between">
-                    <h4 className="text-xl font-bold text-slate-100">{plan.name}</h4>
-                    {isCurrent && (
-                      <span className="px-2 py-0.5 rounded bg-blue-500/20 text-blue-400 text-[10px] font-bold uppercase">
-                        Actuel
-                      </span>
-                    )}
-                  </div>
+                  <h4 className="text-xl font-black text-slate-100">{plan.name}</h4>
+                  <p className="text-xs text-slate-400 mt-1 min-h-[32px]">{plan.desc}</p>
 
-                  <p className="text-xs text-slate-400 mt-2 min-h-[32px]">{plan.desc}</p>
-
-                  <div className="mt-4 pb-6 border-b border-slate-800">
+                  <div className="mt-4 mb-6">
                     <span className="text-2xl font-black text-slate-100">{plan.price}</span>
-                    <span className="text-xs text-slate-500"> / mois</span>
+                    <span className="text-xs text-slate-400"> / mois</span>
                   </div>
 
-                  <ul className="mt-6 space-y-3 text-xs text-slate-300">
-                    {plan.features.map((f, i) => (
-                      <li key={i} className="flex items-center gap-2.5">
+                  <ul className="space-y-2.5 text-xs text-slate-300 border-t border-slate-800/80 pt-6">
+                    {plan.features.map((feat, idx) => (
+                      <li key={idx} className="flex items-center gap-2.5">
                         <svg className="w-4 h-4 text-emerald-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
                         </svg>
-                        <span>{f}</span>
+                        <span>{feat}</span>
                       </li>
                     ))}
                   </ul>
                 </div>
 
                 <div className="mt-8 pt-6 border-t border-slate-800/80">
-                  <button
-                    onClick={() => handleCheckout(plan.slug)}
-                    disabled={Boolean(checkoutLoading)}
-                    className={`w-full font-bold py-3 px-4 rounded-xl text-xs flex items-center justify-center gap-2 transition ${
-                      isCurrent
-                        ? 'bg-slate-800 hover:bg-slate-700 text-slate-200'
-                        : plan.popular
-                        ? 'bg-blue-600 hover:bg-blue-500 text-white shadow-lg shadow-blue-600/20'
-                        : 'bg-slate-800 hover:bg-blue-600 text-slate-200 hover:text-white'
-                    }`}
-                  >
-                    {checkoutLoading === plan.slug ? (
-                      <span>Chargement...</span>
-                    ) : isCurrent ? (
-                      <span>Renouveler via BaridiMob</span>
-                    ) : (
-                      <span>Basculer vers {plan.name}</span>
-                    )}
-                  </button>
+                  {isCurrent ? (
+                    <button
+                      disabled
+                      className="w-full py-3 bg-slate-800 text-slate-400 text-xs font-bold rounded-2xl cursor-default border border-slate-700"
+                    >
+                      Forfait Actuel
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => handleCheckout(plan.slug)}
+                      disabled={Boolean(checkoutLoading)}
+                      className={`w-full py-3 text-xs font-bold rounded-2xl transition shadow-lg ${
+                        plan.popular
+                          ? 'bg-purple-600 hover:bg-purple-500 text-white shadow-purple-600/20'
+                          : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700'
+                      }`}
+                    >
+                      {checkoutLoading === plan.slug ? 'Chargement Chargily...' : `Choisir ${plan.name}`}
+                    </button>
+                  )}
                 </div>
               </div>
             );
           })}
         </div>
+      </div>
+
+      {/* Data Portability & GDPR / Protection Guarantee */}
+      <div className="p-6 rounded-3xl bg-slate-900 border border-slate-800 shadow-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <div className="p-3 rounded-2xl bg-blue-500/10 text-blue-400 border border-blue-500/20 shrink-0">
+            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            </svg>
+          </div>
+          <div>
+            <h4 className="text-sm font-bold text-slate-100">Portabilité & Sauvegarde des Données Atelier</h4>
+            <p className="text-xs text-slate-400 mt-0.5">
+              Exportez l'intégralité de vos fiches clients, véhicules, historiques d'ordres de réparation, factures et stocks dans un format JSON standard.
+            </p>
+          </div>
+        </div>
+
+        <button
+          onClick={handleExportData}
+          disabled={exporting}
+          className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-bold text-xs rounded-xl transition flex items-center gap-2 shrink-0"
+        >
+          <svg className="w-4 h-4 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+          </svg>
+          {exporting ? 'Téléchargement...' : 'Exporter mes données (JSON)'}
+        </button>
       </div>
     </div>
   );

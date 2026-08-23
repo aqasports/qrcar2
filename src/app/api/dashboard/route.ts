@@ -151,6 +151,31 @@ export async function GET(req: NextRequest) {
     );
     const recentJobs = Array.isArray(recentJobsRows) ? recentJobsRows : [];
 
+    // 9. Developer Ecosystem stats
+    let developerStats = {
+      installedAppsCount: 0,
+      activeApiKeysCount: 0,
+      activeWebhooksCount: 0,
+    };
+    try {
+      const devRows = await sql(
+        `SELECT 
+           (SELECT COUNT(*) FROM app_installs WHERE organization_id = $1 AND status = 'active') as installed_apps,
+           (SELECT COUNT(*) FROM api_keys WHERE organization_id = $1 AND revoked_at IS NULL) as active_keys,
+           (SELECT COUNT(*) FROM webhook_subscriptions WHERE organization_id = $1 AND active = true) as active_webhooks`,
+        [organizationId]
+      );
+      if (devRows.length > 0) {
+        developerStats = {
+          installedAppsCount: parseInt(devRows[0]?.installed_apps || '0', 10),
+          activeApiKeysCount: parseInt(devRows[0]?.active_keys || '0', 10),
+          activeWebhooksCount: parseInt(devRows[0]?.active_webhooks || '0', 10),
+        };
+      }
+    } catch {
+      // Table might be initializing
+    }
+
     return NextResponse.json({
       revenue,
       activeVehicles,
@@ -164,6 +189,7 @@ export async function GET(req: NextRequest) {
       myMarketplaceListings,
       myAuthoredSolutions,
       recentJobs,
+      developerStats,
     });
   } catch (error: any) {
     console.error('Failed to get dashboard data:', error);

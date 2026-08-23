@@ -34,18 +34,20 @@ interface DashboardData {
     make: string;
     model: string;
   }>;
+  developerStats?: {
+    installedAppsCount: number;
+    activeApiKeysCount: number;
+    activeWebhooksCount: number;
+  };
 }
 
 export default function ExecutiveCockpitDashboard() {
   const { data: session } = useSession();
   const username = session?.user?.username || 'Chef d\'Atelier';
-  const role = session?.user?.role || 'owner';
   const orgName = session?.user?.orgName || 'Atelier Principal';
-  const planSlug = session?.user?.planSlug || 'pro';
 
   const [data, setData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [quickDtc, setQuickDtc] = useState('');
 
   const fetchDashboard = async () => {
     try {
@@ -68,8 +70,20 @@ export default function ExecutiveCockpitDashboard() {
     return () => clearInterval(interval);
   }, []);
 
+  const totalRev = data?.revenue?.total || 0;
+  const paidRev = data?.revenue?.paid || 0;
+  const collectionRatio = totalRev > 0 ? Math.round((paidRev / totalRev) * 100) : 100;
+
+  const totalParts = data?.totalParts || 0;
+  const lowStock = data?.lowStockCount || 0;
+  const stockHealthRatio = totalParts > 0 ? Math.max(0, Math.round(((totalParts - lowStock) / totalParts) * 100)) : 100;
+
+  const activeVehicles = data?.activeVehicles || 0;
+  const totalVehicles = data?.totalVehicles || 0;
+  const bayCapacityRatio = totalVehicles > 0 ? Math.min(100, Math.round((activeVehicles / Math.max(totalVehicles, 10)) * 100)) : 0;
+
   return (
-    <div className="space-y-8 font-sans">
+    <div className="space-y-8 font-sans max-w-7xl">
       {/* 1. Executive Telemetry Header Ribbon */}
       <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl relative overflow-hidden bg-gradient-to-r from-slate-900 via-slate-900/80 to-blue-950/30">
         <div className="absolute top-0 right-0 w-96 h-96 bg-blue-600/5 rounded-full blur-3xl pointer-events-none" />
@@ -87,10 +101,10 @@ export default function ExecutiveCockpitDashboard() {
             </div>
 
             <h1 className="text-2xl sm:text-3xl font-black text-slate-100 tracking-tight">
-              Bienvenue, {username}
+              {orgName}
             </h1>
             <p className="text-xs sm:text-sm text-slate-400 max-w-xl">
-              Supervisez les flux de réparation, la traçabilité des cartes PVC connectées et les opportunités réseau B2B.
+              Supervisez les flux de réparation, la traçabilité des cartes PVC connectées et les extensions de l'écosystème.
             </p>
           </div>
 
@@ -107,293 +121,311 @@ export default function ExecutiveCockpitDashboard() {
             </Link>
 
             <Link
-              href="/admin/invoices"
+              href="/admin/actions/new"
               className="p-3 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs transition border border-slate-700 flex flex-col items-center justify-center text-center gap-1.5"
             >
               <svg className="w-4 h-4 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" />
               </svg>
-              <span>Créer Devis / Facture</span>
+              <span>Ouvrir un OR</span>
             </Link>
 
             <Link
-              href="/admin/knowledgebase"
+              href="/admin/apps"
               className="p-3 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs transition border border-slate-700 flex flex-col items-center justify-center text-center gap-1.5"
             >
-              <svg className="w-4 h-4 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+              <svg className="w-4 h-4 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
               </svg>
-              <span>Rechercher DTC</span>
+              <span>App Store</span>
             </Link>
 
             <Link
-              href="/admin/marketplace"
+              href="/admin/settings/api"
               className="p-3 rounded-2xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold text-xs transition border border-slate-700 flex flex-col items-center justify-center text-center gap-1.5"
             >
               <svg className="w-4 h-4 text-cyan-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
               </svg>
-              <span>Marketplace Pièces</span>
+              <span>Clés d'API REST</span>
             </Link>
           </div>
         </div>
       </div>
 
-      {/* 2. Key Telemetry KPI Gauges Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-        {/* Metric 1: Chiffre d'Affaires */}
-        <div className="bg-slate-900/90 border border-slate-800/80 rounded-3xl p-6 shadow-xl relative overflow-hidden group hover:border-slate-700 transition">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-              Chiffre d&apos;Affaires Mensuel
-            </span>
-            <div className="w-8 h-8 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center">
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
+      {/* 2. Key Telemetry Radial Gauges & KPI Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {/* Gauge 1: Taux de Recouvrement Financier */}
+        <div className="p-6 rounded-3xl bg-slate-900 border border-slate-800 shadow-xl flex items-center justify-between gap-4">
+          <div className="space-y-1">
+            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Recouvrement Financier</span>
+            <div className="font-mono text-2xl font-black text-slate-100">
+              {collectionRatio}%
             </div>
+            <p className="text-xs text-slate-500">
+              {paidRev.toLocaleString('fr-FR')} DA encaissés sur {totalRev.toLocaleString('fr-FR')} DA
+            </p>
           </div>
-          <div className="mt-3">
-            <span className="font-mono text-2xl sm:text-3xl font-black text-slate-100 block">
-              {(data?.revenue?.total || 0).toLocaleString('fr-FR')} <span className="text-xs font-bold text-slate-400 font-sans">DZD</span>
-            </span>
-          </div>
-          <div className="mt-2 flex items-center justify-between text-[11px] text-slate-500 pt-2 border-t border-slate-800/60 font-mono">
-            <span>Encaissé : {(data?.revenue?.paid || 0).toLocaleString('fr-FR')} DA</span>
-            <span>Émis : {(data?.revenue?.issued || 0).toLocaleString('fr-FR')} DA</span>
+
+          <div className="relative w-16 h-16 shrink-0 flex items-center justify-center">
+            <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
+              <path
+                className="text-slate-800"
+                strokeWidth="3.5"
+                stroke="currentColor"
+                fill="none"
+                d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+              />
+              <path
+                className="text-emerald-500 transition-all duration-1000 ease-out"
+                strokeDasharray={`${collectionRatio}, 100`}
+                strokeWidth="3.5"
+                strokeLinecap="round"
+                stroke="currentColor"
+                fill="none"
+                d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+              />
+            </svg>
+            <span className="absolute text-[10px] font-mono font-bold text-slate-300">{collectionRatio}%</span>
           </div>
         </div>
 
-        {/* Metric 2: Flux Véhicules */}
-        <div className="bg-slate-900/90 border border-slate-800/80 rounded-3xl p-6 shadow-xl relative overflow-hidden group hover:border-slate-700 transition">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-              Véhicules en Traitement
-            </span>
-            <div className="w-8 h-8 rounded-xl bg-blue-500/10 text-blue-400 flex items-center justify-center">
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-              </svg>
+        {/* Gauge 2: Santé & Disponibilité du Stock */}
+        <div className="p-6 rounded-3xl bg-slate-900 border border-slate-800 shadow-xl flex items-center justify-between gap-4">
+          <div className="space-y-1">
+            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Santé du Stock Pièces</span>
+            <div className="font-mono text-2xl font-black text-slate-100">
+              {stockHealthRatio}%
             </div>
+            <p className="text-xs text-slate-500">
+              {lowStock > 0 ? `${lowStock} pièces sous seuil critique` : 'Niveau de stock optimal'}
+            </p>
           </div>
-          <div className="mt-3">
-            <span className="font-mono text-2xl sm:text-3xl font-black text-slate-100 block">
-              {data?.activeVehicles || 0}
-            </span>
-          </div>
-          <div className="mt-2 flex items-center justify-between text-[11px] text-slate-500 pt-2 border-t border-slate-800/60 font-mono">
-            <span>En atelier actif</span>
-            <span className="text-blue-400">{data?.totalVehicles || 0} total flotte</span>
+
+          <div className="relative w-16 h-16 shrink-0 flex items-center justify-center">
+            <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
+              <path
+                className="text-slate-800"
+                strokeWidth="3.5"
+                stroke="currentColor"
+                fill="none"
+                d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+              />
+              <path
+                className={`${lowStock > 0 ? 'text-amber-500' : 'text-blue-500'} transition-all duration-1000 ease-out`}
+                strokeDasharray={`${stockHealthRatio}, 100`}
+                strokeWidth="3.5"
+                strokeLinecap="round"
+                stroke="currentColor"
+                fill="none"
+                d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+              />
+            </svg>
+            <span className="absolute text-[10px] font-mono font-bold text-slate-300">{stockHealthRatio}%</span>
           </div>
         </div>
 
-        {/* Metric 3: Cartes PVC Connectées */}
-        <div className="bg-slate-900/90 border border-slate-800/80 rounded-3xl p-6 shadow-xl relative overflow-hidden group hover:border-slate-700 transition">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-              Cartes PVC Connectées
-            </span>
-            <div className="w-8 h-8 rounded-xl bg-purple-500/10 text-purple-400 flex items-center justify-center">
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
-              </svg>
-            </div>
-          </div>
-          <div className="mt-3">
-            <span className="font-mono text-2xl sm:text-3xl font-black text-slate-100 block">
+        {/* Gauge 3: Activité & Passeports PVC */}
+        <div className="p-6 rounded-3xl bg-slate-900 border border-slate-800 shadow-xl flex items-center justify-between gap-4">
+          <div className="space-y-1">
+            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">Passeports PVC Actifs</span>
+            <div className="font-mono text-2xl font-black text-slate-100">
               {data?.cardsData?.active || 0}
-            </span>
-          </div>
-          <div className="mt-2 flex items-center justify-between text-[11px] text-slate-500 pt-2 border-t border-slate-800/60 font-mono">
-            <span>Passeports en circulation</span>
-            <span className="text-purple-400 font-bold">{data?.cardsData?.available || 0} cartes dispo</span>
-          </div>
-        </div>
-
-        {/* Metric 4: Réseau B2B & Solutions */}
-        <div className="bg-slate-900/90 border border-slate-800/80 rounded-3xl p-6 shadow-xl relative overflow-hidden group hover:border-slate-700 transition">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
-              Écosystème B2B & Stock
-            </span>
-            <div className="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-400 flex items-center justify-center">
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
-              </svg>
             </div>
+            <p className="text-xs text-slate-500">
+              {data?.cardsData?.available || 0} cartes prêtes en stock atelier
+            </p>
           </div>
-          <div className="mt-3">
-            <span className="font-mono text-2xl sm:text-3xl font-black text-slate-100 block">
-              {data?.myMarketplaceListings || 0} <span className="text-xs font-bold text-slate-400 font-sans">pièces B2B</span>
-            </span>
-          </div>
-          <div className="mt-2 flex items-center justify-between text-[11px] text-slate-500 pt-2 border-t border-slate-800/60 font-mono">
-            <span>{data?.myAuthoredSolutions || 0} solutions DTC</span>
-            <span className={data?.lowStockCount ? 'text-amber-400 font-bold' : 'text-slate-500'}>
-              {data?.lowStockCount || 0} alertes réassort
-            </span>
+
+          <div className="w-12 h-12 rounded-2xl bg-purple-500/10 border border-purple-500/20 text-purple-400 flex items-center justify-center font-bold">
+            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
+            </svg>
           </div>
         </div>
       </div>
 
-      {/* 3. Live Workshop Pipeline (Kanban Ribbon) */}
+      {/* 3. Developer & Integration Ecosystem Banner */}
+      <div className="p-6 rounded-3xl bg-slate-900/90 border border-slate-800 shadow-xl flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <div className="p-3 rounded-2xl bg-purple-500/10 text-purple-400 border border-purple-500/20">
+            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 4a2 2 0 114 0v1a1 1 0 001 1h3a1 1 0 011 1v3a1 1 0 01-1 1h-1a2 2 0 100 4h1a1 1 0 011 1v3a1 1 0 01-1 1h-3a1 1 0 01-1-1v-1a2 2 0 10-4 0v1a1 1 0 01-1 1H7a1 1 0 01-1-1v-3a1 1 0 00-1-1H4a2 2 0 110-4h1a1 1 0 001-1V7a1 1 0 011-1h3a1 1 0 001-1V4z" />
+            </svg>
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h2 className="text-base font-bold text-slate-100">Écosystème & Connectivité Logicielle</h2>
+              <span className="px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-400 border border-purple-500/20 text-[10px] font-bold">
+                Shopify-Class API
+              </span>
+            </div>
+            <p className="text-xs text-slate-400 mt-0.5">
+              {data?.developerStats?.installedAppsCount || 0} extension(s) installée(s) • {data?.developerStats?.activeApiKeysCount || 0} clé(s) API active(s) • {data?.developerStats?.activeWebhooksCount || 0} webhook(s) temps réel
+            </p>
+          </div>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <Link
+            href="/admin/apps"
+            className="px-4 py-2 bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold rounded-xl transition shadow-lg shadow-purple-600/20"
+          >
+            Explorer le Store
+          </Link>
+          <Link
+            href="/admin/settings/api"
+            className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 text-xs font-bold rounded-xl transition"
+          >
+            Gérer mes Clés
+          </Link>
+        </div>
+      </div>
+
+      {/* 4. Live Workshop Pipeline (Kanban Ribbon) */}
       <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-4">
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-sm font-extrabold text-slate-100 uppercase tracking-wider">
-              Pipeline & Flux d&apos;Atelier en Direct
+              Pipeline & Flux d'Atelier en Direct
             </h2>
-            <p className="text-xs text-slate-400 mt-0.5">Progression des véhicules à travers les 4 étapes de production</p>
+            <p className="text-xs text-slate-400 mt-0.5">Progression des véhicules à travers les étapes de travail</p>
           </div>
 
-          <Link href="/admin/actions" className="text-xs font-bold text-blue-400 hover:text-blue-300 transition">
-            Consulter les Ordres de Réparation &rarr;
+          <Link href="/admin/actions" className="text-xs font-bold text-blue-400 hover:text-blue-300 transition flex items-center gap-1">
+            Consulter les Ordres de Réparation
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
           </Link>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-2">
-          {/* Stage 1 */}
-          <div className="bg-slate-950/60 border border-slate-800 rounded-2xl p-4 space-y-2">
-            <div className="flex items-center justify-between text-[11px] text-slate-400 font-bold uppercase tracking-wider">
-              <span>1. Réception & OBD</span>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="p-4 rounded-2xl bg-slate-950/80 border border-slate-800/80 space-y-2">
+            <div className="flex items-center justify-between text-xs text-slate-400">
+              <span className="font-bold">1. Réception</span>
               <span className="w-2 h-2 rounded-full bg-blue-500"></span>
             </div>
-            <div className="text-2xl font-black font-mono text-slate-100">
-              {data?.pipeline?.reception || 0}
-            </div>
-            <p className="text-[10px] text-slate-500">Véhicules enregistrés en attente de diagnostic</p>
+            <div className="font-mono text-2xl font-black text-slate-100">{data?.pipeline?.reception || 0}</div>
+            <p className="text-[11px] text-slate-500">En attente de diagnostic</p>
           </div>
 
-          {/* Stage 2 */}
-          <div className="bg-slate-950/60 border border-slate-800 rounded-2xl p-4 space-y-2">
-            <div className="flex items-center justify-between text-[11px] text-slate-400 font-bold uppercase tracking-wider">
-              <span>2. En Réparation</span>
-              <span className="w-2 h-2 rounded-full bg-amber-500"></span>
+          <div className="p-4 rounded-2xl bg-slate-950/80 border border-slate-800/80 space-y-2">
+            <div className="flex items-center justify-between text-xs text-slate-400">
+              <span className="font-bold">2. En Réparation</span>
+              <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
             </div>
-            <div className="text-2xl font-black font-mono text-amber-400">
-              {data?.pipeline?.inProgress || 0}
-            </div>
-            <p className="text-[10px] text-slate-500">Travaux mécaniques ou électroniques en cours</p>
+            <div className="font-mono text-2xl font-black text-slate-100">{data?.pipeline?.inProgress || 0}</div>
+            <p className="text-[11px] text-slate-500">Sur le pont / En cours</p>
           </div>
 
-          {/* Stage 3 */}
-          <div className="bg-slate-950/60 border border-slate-800 rounded-2xl p-4 space-y-2">
-            <div className="flex items-center justify-between text-[11px] text-slate-400 font-bold uppercase tracking-wider">
-              <span>3. Contrôle Qualité</span>
+          <div className="p-4 rounded-2xl bg-slate-950/80 border border-slate-800/80 space-y-2">
+            <div className="flex items-center justify-between text-xs text-slate-400">
+              <span className="font-bold">3. Contrôle Qualité</span>
               <span className="w-2 h-2 rounded-full bg-purple-500"></span>
             </div>
-            <div className="text-2xl font-black font-mono text-purple-400">
-              {data?.pipeline?.qualityCheck || 0}
-            </div>
-            <p className="text-[10px] text-slate-500">Essais sur route et validation finale</p>
+            <div className="font-mono text-2xl font-black text-slate-100">{data?.pipeline?.qualityCheck || 0}</div>
+            <p className="text-[11px] text-slate-500">Travaux finalisés</p>
           </div>
 
-          {/* Stage 4 */}
-          <div className="bg-slate-950/60 border border-slate-800 rounded-2xl p-4 space-y-2">
-            <div className="flex items-center justify-between text-[11px] text-slate-400 font-bold uppercase tracking-wider">
-              <span>4. Prêt & Facturé</span>
+          <div className="p-4 rounded-2xl bg-slate-950/80 border border-slate-800/80 space-y-2">
+            <div className="flex items-center justify-between text-xs text-slate-400">
+              <span className="font-bold">4. Prêt à Livrer</span>
               <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
             </div>
-            <div className="text-2xl font-black font-mono text-emerald-400">
-              {data?.pipeline?.readyToDeliver || 0}
-            </div>
-            <p className="text-[10px] text-slate-500">Véhicules prêts pour restitution client</p>
+            <div className="font-mono text-2xl font-black text-slate-100">{data?.pipeline?.readyToDeliver || 0}</div>
+            <p className="text-[11px] text-slate-500">Facturé & Prêt</p>
           </div>
         </div>
       </div>
 
-      {/* 4. Recent Interventions & Technician Leaderboard */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Recent Service Actions (2 cols) */}
-        <div className="lg:col-span-2 bg-slate-900/90 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-4">
+      {/* 5. Bottom Telemetry Grid: Recent Jobs & Leaderboard */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Recent Jobs List */}
+        <div className="lg:col-span-2 p-6 rounded-3xl bg-slate-900 border border-slate-800 shadow-xl space-y-4">
           <div className="flex items-center justify-between">
-            <h3 className="text-sm font-extrabold text-slate-100 uppercase tracking-wider">
-              Dernières Interventions Réalisées
-            </h3>
-            <Link href="/admin/actions" className="text-xs text-blue-400 font-bold hover:underline">
-              Historique Complet &rarr;
+            <h2 className="text-sm font-bold text-slate-100 uppercase tracking-wider flex items-center gap-2">
+              <svg className="w-4 h-4 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              Derniers Ordres de Réparation
+            </h2>
+            <Link href="/admin/actions" className="text-xs text-slate-400 hover:text-slate-200">
+              Voir tout
             </Link>
           </div>
 
           {loading ? (
-            <div className="py-12 flex justify-center">
+            <div className="py-8 flex justify-center">
               <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500"></div>
             </div>
-          ) : (data?.recentJobs || []).length === 0 ? (
-            <div className="text-center py-10 border border-dashed border-slate-800 rounded-2xl text-slate-500 text-xs">
-              Aucune intervention récente. Créez un ordre de réparation pour débuter.
-            </div>
+          ) : !data?.recentJobs || data.recentJobs.length === 0 ? (
+            <div className="py-8 text-center text-xs text-slate-500">Aucun ordre de réparation récent</div>
           ) : (
-            <div className="space-y-2.5">
-              {data?.recentJobs.map((job) => (
+            <div className="divide-y divide-slate-800">
+              {data.recentJobs.map((job) => (
                 <Link
                   key={job.id}
                   href={`/admin/actions/${job.id}`}
-                  className="flex items-center justify-between p-3.5 rounded-2xl bg-slate-950/60 border border-slate-800 hover:border-slate-700 transition group"
+                  className="py-3 flex items-center justify-between gap-4 hover:bg-slate-800/40 px-2 rounded-xl transition group"
                 >
-                  <div className="min-w-0 pr-3">
+                  <div className="space-y-0.5">
                     <div className="flex items-center gap-2">
-                      <span className="font-mono text-xs font-bold text-slate-200">
-                        {job.plate_number}
-                      </span>
-                      <span className="text-[11px] text-slate-400">
+                      <span className="font-bold text-xs text-slate-200 group-hover:text-blue-400 transition-colors">
                         {job.make} {job.model}
                       </span>
+                      <code className="text-[10px] px-1.5 py-0.5 rounded bg-slate-950 text-slate-400 font-mono">
+                        {job.plate_number}
+                      </code>
                     </div>
-                    <p className="text-[11px] text-slate-500 capitalize mt-0.5 truncate">
-                      {job.type} • {new Date(job.date_in).toLocaleDateString('fr-FR')}
-                    </p>
+                    <p className="text-[11px] text-slate-400 capitalize">{job.type}</p>
                   </div>
 
-                  <span
-                    className={`px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider shrink-0 border ${
-                      job.status === 'completed' || job.status === 'invoiced'
-                        ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
-                        : 'bg-amber-500/10 text-amber-400 border-amber-500/20'
-                    }`}
-                  >
-                    {job.status === 'completed' ? 'Terminé' : job.status === 'invoiced' ? 'Facturé' : 'En cours'}
-                  </span>
+                  <div className="text-right space-y-0.5">
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700">
+                      {job.status}
+                    </span>
+                    <p className="text-[10px] text-slate-500">
+                      {new Date(job.date_in).toLocaleDateString('fr-FR')}
+                    </p>
+                  </div>
                 </Link>
               ))}
             </div>
           )}
         </div>
 
-        {/* Technician Performance Leaderboard (1 col) */}
-        <div className="bg-slate-900/90 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-sm font-extrabold text-slate-100 uppercase tracking-wider">
-              Productivité Équipe
-            </h3>
-            <Link href="/admin/workers" className="text-xs text-blue-400 font-bold hover:underline">
-              Gérer &rarr;
-            </Link>
-          </div>
+        {/* Team Leaderboard */}
+        <div className="p-6 rounded-3xl bg-slate-900 border border-slate-800 shadow-xl space-y-4">
+          <h2 className="text-sm font-bold text-slate-100 uppercase tracking-wider flex items-center gap-2">
+            <svg className="w-4 h-4 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z" />
+            </svg>
+            Techniciens Leaders
+          </h2>
 
-          {(data?.leaderboard || []).length === 0 ? (
-            <div className="text-center py-10 border border-dashed border-slate-800 rounded-2xl text-slate-500 text-xs">
-              Aucun technicien enregistré.
+          {loading ? (
+            <div className="py-8 flex justify-center">
+              <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-amber-500"></div>
             </div>
+          ) : !data?.leaderboard || data.leaderboard.length === 0 ? (
+            <div className="py-8 text-center text-xs text-slate-500">Aucune activité enregistrée</div>
           ) : (
             <div className="space-y-3">
-              {data?.leaderboard.map((w, idx) => (
-                <div
-                  key={w.id}
-                  className="flex items-center justify-between p-3 rounded-2xl bg-slate-950/60 border border-slate-800/80"
-                >
+              {data.leaderboard.map((worker, i) => (
+                <div key={worker.id} className="p-3 rounded-2xl bg-slate-950/60 border border-slate-800/80 flex items-center justify-between gap-3">
                   <div className="flex items-center gap-3">
-                    <span className="w-6 h-6 rounded-lg bg-slate-800 flex items-center justify-center font-mono font-bold text-xs text-slate-400">
-                      #{idx + 1}
+                    <span className="w-6 h-6 rounded-full bg-slate-800 text-slate-300 font-bold text-xs flex items-center justify-center">
+                      #{i + 1}
                     </span>
                     <div>
-                      <h4 className="text-xs font-bold text-slate-200">{w.full_name}</h4>
-                      <span className="text-[10px] text-slate-500 uppercase">{w.role}</span>
+                      <p className="text-xs font-bold text-slate-200">{worker.full_name}</p>
+                      <p className="text-[10px] text-slate-500 capitalize">{worker.role}</p>
                     </div>
                   </div>
 
-                  <span className="px-2.5 py-1 rounded-xl bg-blue-500/10 text-blue-400 font-mono text-xs font-bold border border-blue-500/20">
-                    {w.job_count} travaux
+                  <span className="font-mono text-xs font-bold text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
+                    {worker.job_count} OR
                   </span>
                 </div>
               ))}

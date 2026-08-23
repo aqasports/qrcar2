@@ -162,7 +162,7 @@ export const vehicles = pgTable('vehicles', {
   organizationId: uuid('organization_id').references(() => organizations.id, { onDelete: 'restrict' }).notNull(),
   clientId: uuid('client_id').references(() => clients.id, { onDelete: 'restrict' }),
   plateNumber: varchar('plate_number', { length: 50 }).notNull(),
-  make: varchar('100', { length: 100 }).notNull(),
+  make: varchar('make', { length: 100 }).notNull(),
   model: varchar('model', { length: 100 }).notNull(),
   year: integer('year').notNull(),
   vin: varchar('vin', { length: 100 }),
@@ -645,6 +645,149 @@ export const notificationQueue = pgTable('notification_queue', {
 ]);
 
 // ==========================================
+// 31. DEVELOPER ACCOUNTS
+// ==========================================
+export const developerAccounts = pgTable('developer_accounts', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  userId: uuid('user_id').references(() => users.id, { onDelete: 'cascade' }).notNull(),
+  companyName: varchar('company_name', { length: 255 }),
+  contactEmail: varchar('contact_email', { length: 255 }).notNull(),
+  websiteUrl: text('website_url'),
+  status: varchar('status', { length: 30 }).notNull().default('active'), // 'active', 'suspended'
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+}, (t) => [
+  uniqueIndex('idx_dev_account_user').on(t.userId),
+]);
+
+// ==========================================
+// 32. APPS (Integrations & Store Catalog)
+// ==========================================
+export const apps = pgTable('apps', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  developerAccountId: uuid('developer_account_id').references(() => developerAccounts.id, { onDelete: 'cascade' }).notNull(),
+  ownerOrganizationId: uuid('owner_organization_id').references(() => organizations.id, { onDelete: 'cascade' }), // set only for private custom apps
+  name: varchar('name', { length: 255 }).notNull(),
+  slug: varchar('slug', { length: 255 }).notNull().unique(),
+  description: text('description'),
+  iconUrl: text('icon_url'),
+  visibility: varchar('visibility', { length: 20 }).notNull().default('private'), // 'private', 'public'
+  status: varchar('status', { length: 30 }).notNull().default('draft'), // 'draft', 'submitted', 'approved', 'rejected', 'published', 'suspended'
+  rejectionReason: text('rejection_reason'),
+  redirectUris: jsonb('redirect_uris').default([]).notNull(), // OAuth callback allowlist
+  webhookCallbackUrl: text('webhook_callback_url'),
+  requestedScopes: jsonb('requested_scopes').notNull().default([]), // e.g. ['read_vehicles', 'write_actions']
+  reviewedBy: uuid('reviewed_by').references(() => users.id, { onDelete: 'set null' }),
+  reviewedAt: timestamp('reviewed_at', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+}, (t) => [
+  index('idx_apps_developer').on(t.developerAccountId),
+  index('idx_apps_owner_org').on(t.ownerOrganizationId),
+  index('idx_apps_status').on(t.status),
+  index('idx_apps_visibility').on(t.visibility),
+]);
+
+// ==========================================
+// 33. APP INSTALLS (Tenant App Installations)
+// ==========================================
+export const appInstalls = pgTable('app_installs', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  appId: uuid('app_id').references(() => apps.id, { onDelete: 'cascade' }).notNull(),
+  organizationId: uuid('organization_id').references(() => organizations.id, { onDelete: 'cascade' }).notNull(),
+  grantedScopes: jsonb('granted_scopes').notNull().default([]),
+  installedByUserId: uuid('installed_by_user_id').references(() => users.id, { onDelete: 'set null' }),
+  status: varchar('status', { length: 20 }).notNull().default('active'), // 'active', 'uninstalled', 'suspended'
+  installedAt: timestamp('installed_at', { withTimezone: true }).defaultNow().notNull(),
+  uninstalledAt: timestamp('uninstalled_at', { withTimezone: true }),
+}, (t) => [
+  uniqueIndex('idx_app_install_unique').on(t.appId, t.organizationId),
+  index('idx_app_installs_org').on(t.organizationId),
+  index('idx_app_installs_app').on(t.appId),
+]);
+
+// ==========================================
+// 34. API KEYS (Hashed Developer Credentials)
+// ==========================================
+export const apiKeys = pgTable('api_keys', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  appInstallId: uuid('app_install_id').references(() => appInstalls.id, { onDelete: 'cascade' }).notNull(),
+  organizationId: uuid('organization_id').references(() => organizations.id, { onDelete: 'cascade' }).notNull(),
+  name: varchar('name', { length: 255 }).notNull().default('Default API Key'),
+  keyPrefix: varchar('key_prefix', { length: 20 }).notNull(), // e.g. 'qrc_live_a1b2c3d4'
+  hashedSecret: varchar('hashed_secret', { length: 255 }).notNull(), // bcrypt salted hash
+  scopes: jsonb('scopes').notNull().default([]),
+  lastUsedAt: timestamp('last_used_at', { withTimezone: true }),
+  revokedAt: timestamp('revoked_at', { withTimezone: true }),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+}, (t) => [
+  index('idx_api_keys_org').on(t.organizationId),
+  index('idx_api_keys_prefix').on(t.keyPrefix),
+  index('idx_api_keys_install').on(t.appInstallId),
+]);
+
+// ==========================================
+// 35. WEBHOOK SUBSCRIPTIONS
+// ==========================================
+export const webhookSubscriptions = pgTable('webhook_subscriptions', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  appInstallId: uuid('app_install_id').references(() => appInstalls.id, { onDelete: 'cascade' }).notNull(),
+  organizationId: uuid('organization_id').references(() => organizations.id, { onDelete: 'cascade' }).notNull(),
+  topic: varchar('topic', { length: 100 }).notNull(), // 'action.completed', 'invoice.issued', etc.
+  targetUrl: text('target_url').notNull(),
+  signingSecret: varchar('signing_secret', { length: 255 }).notNull(),
+  active: boolean('active').notNull().default(true),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+}, (t) => [
+  index('idx_webhook_subs_org').on(t.organizationId),
+  index('idx_webhook_subs_topic').on(t.topic),
+  index('idx_webhook_subs_install').on(t.appInstallId),
+]);
+
+// ==========================================
+// 36. WEBHOOK DELIVERIES (Outbound Event Log)
+// ==========================================
+export const webhookDeliveries = pgTable('webhook_deliveries', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  subscriptionId: uuid('subscription_id').references(() => webhookSubscriptions.id, { onDelete: 'cascade' }).notNull(),
+  organizationId: uuid('organization_id').references(() => organizations.id, { onDelete: 'cascade' }).notNull(),
+  eventId: uuid('event_id').notNull(), // idempotency UUID delivered in headers
+  topic: varchar('topic', { length: 100 }).notNull(),
+  payload: jsonb('payload').notNull(),
+  status: varchar('status', { length: 20 }).notNull().default('pending'), // 'pending', 'delivered', 'failed', 'exhausted'
+  attempts: integer('attempts').notNull().default(0),
+  lastAttemptAt: timestamp('last_attempt_at', { withTimezone: true }),
+  responseStatus: integer('response_status'),
+  responseBody: text('response_body'),
+  errorMessage: text('error_message'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+}, (t) => [
+  index('idx_webhook_deliveries_org').on(t.organizationId),
+  index('idx_webhook_deliveries_sub').on(t.subscriptionId),
+  index('idx_webhook_deliveries_status').on(t.status),
+  index('idx_webhook_deliveries_event').on(t.eventId),
+]);
+
+// ==========================================
+// 37. API REQUEST LOG (Durable Rate Limiting)
+// ==========================================
+export const apiRequestLog = pgTable('api_request_log', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  apiKeyId: uuid('api_key_id').references(() => apiKeys.id, { onDelete: 'cascade' }).notNull(),
+  organizationId: uuid('organization_id').references(() => organizations.id, { onDelete: 'cascade' }).notNull(),
+  method: varchar('method', { length: 10 }).notNull(),
+  path: varchar('path', { length: 255 }).notNull(),
+  statusCode: integer('status_code'),
+  durationMs: integer('duration_ms'),
+  windowBucket: timestamp('window_bucket', { withTimezone: true }).notNull(), // truncated to the minute
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+}, (t) => [
+  index('idx_api_log_key_bucket').on(t.apiKeyId, t.windowBucket),
+  index('idx_api_log_org').on(t.organizationId),
+]);
+
+// ==========================================
 // DRIZZLE RELATIONS DEFINITIONS
 // ==========================================
 export const organizationRelations = relations(organizations, ({ one, many }) => ({
@@ -702,3 +845,60 @@ export const vehicleRelations = relations(vehicles, ({ one, many }) => ({
   appointments: many(appointments),
   reminders: many(reminders),
 }));
+
+export const developerAccountsRelations = relations(developerAccounts, ({ one, many }) => ({
+  user: one(users, {
+    fields: [developerAccounts.userId],
+    references: [users.id],
+  }),
+  apps: many(apps),
+}));
+
+export const appsRelations = relations(apps, ({ one, many }) => ({
+  developerAccount: one(developerAccounts, {
+    fields: [apps.developerAccountId],
+    references: [developerAccounts.id],
+  }),
+  ownerOrganization: one(organizations, {
+    fields: [apps.ownerOrganizationId],
+    references: [organizations.id],
+  }),
+  installs: many(appInstalls),
+}));
+
+export const appInstallsRelations = relations(appInstalls, ({ one, many }) => ({
+  app: one(apps, {
+    fields: [appInstalls.appId],
+    references: [apps.id],
+  }),
+  organization: one(organizations, {
+    fields: [appInstalls.organizationId],
+    references: [organizations.id],
+  }),
+  apiKeys: many(apiKeys),
+  webhookSubscriptions: many(webhookSubscriptions),
+}));
+
+export const apiKeysRelations = relations(apiKeys, ({ one }) => ({
+  appInstall: one(appInstalls, {
+    fields: [apiKeys.appInstallId],
+    references: [appInstalls.id],
+  }),
+  organization: one(organizations, {
+    fields: [apiKeys.organizationId],
+    references: [organizations.id],
+  }),
+}));
+
+export const webhookSubscriptionsRelations = relations(webhookSubscriptions, ({ one, many }) => ({
+  appInstall: one(appInstalls, {
+    fields: [webhookSubscriptions.appInstallId],
+    references: [appInstalls.id],
+  }),
+  organization: one(organizations, {
+    fields: [webhookSubscriptions.organizationId],
+    references: [organizations.id],
+  }),
+  deliveries: many(webhookDeliveries),
+}));
+

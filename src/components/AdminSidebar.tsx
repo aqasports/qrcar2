@@ -268,6 +268,42 @@ export default function AdminSidebar({
           ),
         },
         {
+          name: 'App Store & Extensions',
+          href: '/admin/apps',
+          roles: ['owner', 'super_admin', 'manager', 'platform_admin'],
+          badge: 'Store',
+          badgeColor: 'bg-purple-500/10 text-purple-400 border-purple-500/20',
+          icon: (
+            <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+            </svg>
+          ),
+        },
+        {
+          name: 'API & Développeur',
+          href: '/admin/settings/api',
+          roles: ['owner', 'super_admin', 'platform_admin'],
+          badge: 'REST v1',
+          badgeColor: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
+          icon: (
+            <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+            </svg>
+          ),
+        },
+        {
+          name: 'Webhooks & Événements',
+          href: '/admin/settings/webhooks',
+          roles: ['owner', 'super_admin', 'platform_admin'],
+          badge: 'Events',
+          badgeColor: 'bg-purple-500/10 text-purple-400 border-purple-500/20',
+          icon: (
+            <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+            </svg>
+          ),
+        },
+        {
           name: 'Journal d’Audit',
           href: '/admin/audit',
           roles: ['owner', 'super_admin', 'platform_admin'],

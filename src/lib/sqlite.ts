@@ -47,6 +47,8 @@ export async function getSqliteDb(): Promise<Database> {
     try {
       const fileBuffer = fs.readFileSync(DB_FILE);
       dbInstance = new sqlLib.Database(fileBuffer);
+      initSchema(dbInstance);
+      saveDatabase();
     } catch (e) {
       dbInstance = new sqlLib.Database();
       initSchema(dbInstance);
@@ -65,7 +67,8 @@ export async function getSqliteDb(): Promise<Database> {
 }
 
 function initSchema(db: Database) {
-  db.run(`
+  try {
+    db.run(`
     CREATE TABLE IF NOT EXISTS plans (
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
@@ -118,9 +121,28 @@ function initSchema(db: Database) {
       password_hash TEXT NOT NULL,
       role TEXT NOT NULL DEFAULT 'manager',
       active INTEGER DEFAULT 1,
+      is_platform_admin INTEGER DEFAULT 0,
       created_at TEXT DEFAULT CURRENT_TIMESTAMP,
       updated_at TEXT DEFAULT CURRENT_TIMESTAMP
     );
+
+    CREATE TABLE IF NOT EXISTS organization_members (
+      id TEXT PRIMARY KEY,
+      organization_id TEXT NOT NULL,
+      user_id TEXT NOT NULL,
+      branch_id TEXT,
+      role TEXT NOT NULL DEFAULT 'technician',
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(organization_id, user_id)
+    );
+  `);
+  } catch {}
+
+  try { db.run(`ALTER TABLE users ADD COLUMN is_platform_admin INTEGER DEFAULT 0;`); } catch {}
+  try { db.run(`ALTER TABLE users ADD COLUMN role TEXT DEFAULT 'manager';`); } catch {}
+
+  db.run(`
 
     CREATE TABLE IF NOT EXISTS clients (
       id TEXT PRIMARY KEY,
@@ -315,6 +337,101 @@ function initSchema(db: Database) {
       created_at TEXT DEFAULT CURRENT_TIMESTAMP
     );
 
+    CREATE TABLE IF NOT EXISTS developer_accounts (
+      id TEXT PRIMARY KEY,
+      user_id TEXT NOT NULL,
+      company_name TEXT,
+      contact_email TEXT NOT NULL,
+      website_url TEXT,
+      status TEXT NOT NULL DEFAULT 'active',
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS apps (
+      id TEXT PRIMARY KEY,
+      developer_account_id TEXT NOT NULL,
+      owner_organization_id TEXT,
+      name TEXT NOT NULL,
+      slug TEXT UNIQUE NOT NULL,
+      description TEXT,
+      icon_url TEXT,
+      visibility TEXT NOT NULL DEFAULT 'private',
+      status TEXT NOT NULL DEFAULT 'draft',
+      rejection_reason TEXT,
+      redirect_uris TEXT DEFAULT '[]',
+      webhook_callback_url TEXT,
+      requested_scopes TEXT DEFAULT '[]',
+      reviewed_by TEXT,
+      reviewed_at TEXT,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS app_installs (
+      id TEXT PRIMARY KEY,
+      app_id TEXT NOT NULL,
+      organization_id TEXT NOT NULL,
+      granted_scopes TEXT DEFAULT '[]',
+      installed_by_user_id TEXT,
+      status TEXT NOT NULL DEFAULT 'active',
+      installed_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      uninstalled_at TEXT
+    );
+
+    CREATE TABLE IF NOT EXISTS api_keys (
+      id TEXT PRIMARY KEY,
+      app_install_id TEXT NOT NULL,
+      organization_id TEXT NOT NULL,
+      name TEXT NOT NULL DEFAULT 'Default API Key',
+      key_prefix TEXT NOT NULL,
+      hashed_secret TEXT NOT NULL,
+      scopes TEXT DEFAULT '[]',
+      last_used_at TEXT,
+      revoked_at TEXT,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS webhook_subscriptions (
+      id TEXT PRIMARY KEY,
+      app_install_id TEXT NOT NULL,
+      organization_id TEXT NOT NULL,
+      topic TEXT NOT NULL,
+      target_url TEXT NOT NULL,
+      signing_secret TEXT NOT NULL,
+      active INTEGER DEFAULT 1,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS webhook_deliveries (
+      id TEXT PRIMARY KEY,
+      subscription_id TEXT NOT NULL,
+      organization_id TEXT NOT NULL,
+      event_id TEXT NOT NULL,
+      topic TEXT NOT NULL,
+      payload TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'pending',
+      attempts INTEGER DEFAULT 0,
+      last_attempt_at TEXT,
+      response_status INTEGER,
+      response_body TEXT,
+      error_message TEXT,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS api_request_log (
+      id TEXT PRIMARY KEY,
+      api_key_id TEXT NOT NULL,
+      organization_id TEXT NOT NULL,
+      method TEXT NOT NULL,
+      path TEXT NOT NULL,
+      status_code INTEGER,
+      duration_ms INTEGER,
+      window_bucket TEXT NOT NULL,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
+
     -- Seed default organization & users
     INSERT OR IGNORE INTO plans (id, name, slug, tier, price_monthly, active)
     VALUES ('plan_pro', 'Pro Garage', 'pro', 'pro', 4900.00, 1);
@@ -322,11 +439,34 @@ function initSchema(db: Database) {
     INSERT OR IGNORE INTO organizations (id, name, slug, plan_id, subscription_status, brand_color_primary, locale, city)
     VALUES ('org_main', 'Garage Pro Alger', 'garage-pro-alger', 'plan_pro', 'active', '#0f172a', 'fr', 'Alger');
 
-    INSERT OR IGNORE INTO users (id, organization_id, username, password_hash, role, active)
+    INSERT OR IGNORE INTO users (id, organization_id, username, password_hash, role, active, is_platform_admin)
     VALUES 
-      ('usr_admin', 'org_main', 'admin', '$2a$10$7vN3nI4D5zUjU1U0x8v9Le4a8.G0qTq9.B6Z8j3d4b6r4v5y6z7w.', 'super_admin', 1),
-      ('usr_manager', 'org_main', 'manager', '$2a$10$7vN3nI4D5zUjU1U0x8v9Le4a8.G0qTq9.B6Z8j3d4b6r4v5y6z7w.', 'manager', 1),
-      ('usr_tech', 'org_main', 'tech', '$2a$10$7vN3nI4D5zUjU1U0x8v9Le4a8.G0qTq9.B6Z8j3d4b6r4v5y6z7w.', 'technician', 1);
+      ('usr_admin', 'org_main', 'admin', '$2b$10$6fvg0zscY0s1222FOAowpO0wRL1aKZY8JVX9NaOGMtTz6goInOXMu', 'super_admin', 1, 0),
+      ('usr_manager', 'org_main', 'manager', '$2b$10$49t8VZb.GLqUTM0Z1vIi1Oof/g5lPaG72K7JciGEF6fRAzivEDcBK', 'manager', 1, 0),
+      ('usr_tech', 'org_main', 'tech', '$2b$10$bjoxfxWJAvCq8bXKjJd0mOkuP9UhFj/PTZvEhkzxJ5Vi1NnaFPVLC', 'technician', 1, 0),
+      ('usr_platform', 'org_main', 'platform_admin', '$2b$10$/dQsFR0dOo2x2HDiihFqC.SRs5OPfr3vv92vpT8ozqOaesbNbCkCa', 'platform_admin', 1, 1);
+
+    -- Ensure password hashes are fresh for local testing
+    UPDATE users SET password_hash = '$2b$10$6fvg0zscY0s1222FOAowpO0wRL1aKZY8JVX9NaOGMtTz6goInOXMu' WHERE username = 'admin';
+    UPDATE users SET password_hash = '$2b$10$49t8VZb.GLqUTM0Z1vIi1Oof/g5lPaG72K7JciGEF6fRAzivEDcBK' WHERE username = 'manager';
+    UPDATE users SET password_hash = '$2b$10$bjoxfxWJAvCq8bXKjJd0mOkuP9UhFj/PTZvEhkzxJ5Vi1NnaFPVLC' WHERE username = 'tech';
+    UPDATE users SET password_hash = '$2b$10$/dQsFR0dOo2x2HDiihFqC.SRs5OPfr3vv92vpT8ozqOaesbNbCkCa', is_platform_admin = 1 WHERE username = 'platform_admin';
+
+    INSERT OR IGNORE INTO organization_members (id, organization_id, user_id, role)
+    VALUES 
+      ('mem_admin', 'org_main', 'usr_admin', 'owner'),
+      ('mem_manager', 'org_main', 'usr_manager', 'manager'),
+      ('mem_tech', 'org_main', 'usr_tech', 'technician');
+
+    INSERT OR IGNORE INTO developer_accounts (id, user_id, company_name, contact_email, website_url, status)
+    VALUES ('dev_okkul', 'usr_admin', 'OKKUL Software Engineering', 'dev@okkul.ai', 'https://okkul.ai', 'active');
+
+    INSERT OR IGNORE INTO apps (id, developer_account_id, name, slug, description, visibility, status, requested_scopes)
+    VALUES 
+      ('app_compta', 'dev_okkul', 'Sync Comptable Algérie', 'sync-comptable-algerie', 'Synchronisation automatique des factures, règlements et états financiers avec PC Compta, DLG et Sage.', 'public', 'published', '["read_invoices", "read_clients"]'),
+      ('app_whatsapp', 'dev_okkul', 'WhatsApp & SMS Notifier Pro', 'whatsapp-sms-notifier', 'Envoi automatisé de notifications et suivis d''interventions aux clients par WhatsApp et SMS.', 'public', 'published', '["read_vehicles", "read_actions", "manage_webhooks"]'),
+      ('app_diag', 'dev_okkul', 'Connecteur Scanner OBD-II / DTC', 'connecteur-scanner-obd2', 'Importation directe des codes pannes DTC et anomalies moteur depuis les valises de diagnostic.', 'public', 'published', '["read_vehicles", "write_actions"]'),
+      ('app_erp_parts', 'dev_okkul', 'Catalogue & ERP Pièces Détachées', 'erp-pieces-detachees', 'Liaison temps réel avec les réseaux de grossistes et distributeurs de pièces en Algérie.', 'public', 'published', '["read_inventory", "write_inventory", "manage_webhooks"]');
   `);
 }
 

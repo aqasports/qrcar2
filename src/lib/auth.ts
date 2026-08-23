@@ -94,40 +94,73 @@ export const authOptions: NextAuthOptions = {
         }
 
         // 3. Fetch Organization Membership
-        const memberRows = await sql(
-          `SELECT 
-             om.role, 
-             om.organization_id, 
-             om.branch_id, 
-             o.name as org_name, 
-             o.slug as org_slug, 
-             o.subscription_status, 
-             p.slug as plan_slug
-           FROM organization_members om
-           JOIN organizations o ON om.organization_id = o.id
-           LEFT JOIN plans p ON o.plan_id = p.id
-           WHERE om.user_id = $1
-           LIMIT 1`,
-          [user.id]
-        );
+        let membership: any = null;
+        try {
+          const memberRows = await sql(
+            `SELECT 
+               om.role, 
+               om.organization_id, 
+               om.branch_id, 
+               o.name as org_name, 
+               o.slug as org_slug, 
+               o.subscription_status, 
+               p.slug as plan_slug
+             FROM organization_members om
+             JOIN organizations o ON om.organization_id = o.id
+             LEFT JOIN plans p ON o.plan_id = p.id
+             WHERE om.user_id = $1
+             LIMIT 1`,
+            [user.id]
+          );
+          membership = memberRows[0] || null;
+        } catch (e) {
+          console.warn('[AUTH] Organization members lookup notice:', e);
+        }
 
-        const membership = memberRows[0] || null;
+        // Fallback: If no organization_members entry, check user.organization_id directly
+        if (!membership && user.organization_id) {
+          try {
+            const orgRows = await sql(
+              `SELECT o.id as organization_id, o.name as org_name, o.slug as org_slug, o.subscription_status, p.slug as plan_slug
+               FROM organizations o
+               LEFT JOIN plans p ON o.plan_id = p.id
+               WHERE o.id = $1
+               LIMIT 1`,
+              [user.organization_id]
+            );
+            if (orgRows.length > 0) {
+              membership = {
+                role: user.role || 'technician',
+                organization_id: orgRows[0].organization_id,
+                branch_id: null,
+                org_name: orgRows[0].org_name,
+                org_slug: orgRows[0].org_slug,
+                subscription_status: orgRows[0].subscription_status,
+                plan_slug: orgRows[0].plan_slug,
+              };
+            }
+          } catch (e) {
+            console.warn('[AUTH] Organization fallback notice:', e);
+          }
+        }
 
         // Determine effective role
         let effectiveRole: UserRole = 'technician';
         if (user.is_platform_admin) {
           effectiveRole = 'platform_admin';
         } else if (membership) {
-          effectiveRole = membership.role as UserRole;
+          effectiveRole = (membership.role as UserRole) || (user.role as UserRole) || 'owner';
+        } else if (user.role) {
+          effectiveRole = user.role as UserRole;
         }
 
         return {
           id: user.id,
           name: user.username,
           username: user.username,
-          organizationId: membership?.organization_id || '',
-          orgName: membership?.org_name || 'Plateforme',
-          orgSlug: membership?.org_slug || 'platform',
+          organizationId: membership?.organization_id || user.organization_id || '00000000-0000-0000-0000-000000000001',
+          orgName: membership?.org_name || 'Atelier Principal',
+          orgSlug: membership?.org_slug || 'atelier-principal',
           role: effectiveRole,
           subscriptionStatus: membership?.subscription_status || 'active',
           planSlug: membership?.plan_slug || 'pro',

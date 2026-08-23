@@ -139,7 +139,30 @@ async function seed() {
       );
     }
 
-    console.log('System roles and organization members initialized successfully.');
+    // 5. Seed Developer Account and Official Apps
+    if (userAdmin[0]?.id) {
+      const devAccountRows = await sql(
+        `INSERT INTO developer_accounts (id, user_id, company_name, contact_email, website_url, status)
+         VALUES ('20000000-0000-0000-0000-000000000001', $1, 'OKKUL Software Engineering', 'dev@okkul.ai', 'https://okkul.ai', 'active')
+         ON CONFLICT (user_id) DO UPDATE SET company_name = EXCLUDED.company_name
+         RETURNING id`,
+        [userAdmin[0].id]
+      );
+
+      const devId = devAccountRows[0]?.id || '20000000-0000-0000-0000-000000000001';
+
+      await sql(`
+        INSERT INTO apps (id, developer_account_id, name, slug, description, visibility, status, requested_scopes)
+        VALUES 
+          ('30000000-0000-0000-0000-000000000001', '${devId}', 'Sync Comptable Algérie', 'sync-comptable-algerie', 'Synchronisation automatique des factures, règlements et états financiers avec PC Compta, DLG et Sage.', 'public', 'published', '["read_invoices", "read_clients"]'),
+          ('30000000-0000-0000-0000-000000000002', '${devId}', 'WhatsApp & SMS Notifier Pro', 'whatsapp-sms-notifier', 'Envoi automatisé de notifications et suivis d''interventions aux clients par WhatsApp et SMS.', 'public', 'published', '["read_vehicles", "read_actions", "manage_webhooks"]'),
+          ('30000000-0000-0000-0000-000000000003', '${devId}', 'Connecteur Scanner OBD-II / DTC', 'connecteur-scanner-obd2', 'Importation directe des codes pannes DTC et anomalies moteur depuis les valises de diagnostic.', 'public', 'published', '["read_vehicles", "write_actions"]'),
+          ('30000000-0000-0000-0000-000000000004', '${devId}', 'Catalogue & ERP Pièces Détachées', 'erp-pieces-detachees', 'Liaison temps réel avec les réseaux de grossistes et distributeurs de pièces en Algérie.', 'public', 'published', '["read_inventory", "write_inventory", "manage_webhooks"]')
+        ON CONFLICT (slug) DO NOTHING;
+      `);
+    }
+
+    console.log('System roles, organization members, and App Store catalog initialized successfully.');
 
     if (pgClient) await pgClient.end();
   } catch (error) {

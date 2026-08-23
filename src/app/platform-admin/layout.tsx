@@ -72,6 +72,16 @@ export default async function PlatformAdminLayout({
               <span>Commandes & Expéditions</span>
             </Link>
 
+            <Link
+              href="/platform-admin/apps"
+              className="flex items-center gap-3 px-4 py-2.5 text-xs font-bold rounded-xl text-slate-300 hover:text-white hover:bg-slate-800 transition duration-150"
+            >
+              <svg className="w-4 h-4 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+              </svg>
+              <span>Modération App Store</span>
+            </Link>
+
             <div className="pt-4 mt-4 border-t border-slate-800">
               <span className="px-4 text-[10px] font-bold uppercase tracking-wider text-slate-500">Navigation Système</span>
               <Link

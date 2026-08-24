@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import SignOutButton from '@/app/admin/SignOutButton';
+import { Badge } from '@/components/ui';
 
 interface NavSection {
   title: string;
@@ -84,7 +85,7 @@ export default function AdminSidebar({
           href: '/admin/vehicles',
           roles: ['owner', 'super_admin', 'manager', 'technician', 'platform_admin'],
           badge: 'VIN Auto-Fill',
-          badgeColor: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
+          badgeColor: 'bg-blue-500/15 text-blue-300 border-blue-500/30',
           icon: (
             <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
@@ -141,7 +142,7 @@ export default function AdminSidebar({
           href: '/admin/marketplace',
           roles: ['owner', 'super_admin', 'manager', 'technician', 'platform_admin'],
           badge: 'B2B',
-          badgeColor: 'bg-amber-500/10 text-amber-400 border-amber-500/20',
+          badgeColor: 'bg-amber-500/15 text-amber-300 border-amber-500/30',
           icon: (
             <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
@@ -153,7 +154,7 @@ export default function AdminSidebar({
           href: '/admin/knowledgebase',
           roles: ['owner', 'super_admin', 'manager', 'technician', 'platform_admin'],
           badge: 'OBD-II',
-          badgeColor: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
+          badgeColor: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30',
           icon: (
             <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
@@ -165,7 +166,7 @@ export default function AdminSidebar({
           href: '/admin/messages',
           roles: ['owner', 'super_admin', 'manager', 'technician', 'platform_admin'],
           badge: unreadMessages > 0 ? `${unreadMessages} non lu` : undefined,
-          badgeColor: 'bg-blue-600 text-white animate-pulse',
+          badgeColor: 'bg-accent text-white shadow-sm shadow-blue-500/30',
           icon: (
             <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
@@ -192,7 +193,7 @@ export default function AdminSidebar({
           href: '/admin/cards/studio',
           roles: ['owner', 'super_admin', 'manager', 'platform_admin'],
           badge: '300 DPI',
-          badgeColor: 'bg-purple-500/10 text-purple-400 border-purple-500/20',
+          badgeColor: 'bg-purple-500/15 text-purple-300 border-purple-500/30',
           icon: (
             <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
@@ -235,7 +236,7 @@ export default function AdminSidebar({
           ),
         },
         {
-          name: 'Équipe & Permissions',
+          name: 'Équipe & Techniciens',
           href: '/admin/workers',
           roles: ['owner', 'super_admin', 'manager', 'platform_admin'],
           icon: (
@@ -249,7 +250,7 @@ export default function AdminSidebar({
           href: '/admin/billing',
           roles: ['owner', 'super_admin', 'manager', 'platform_admin'],
           badge: 'DZD',
-          badgeColor: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
+          badgeColor: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30',
           icon: (
             <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
@@ -272,7 +273,7 @@ export default function AdminSidebar({
           href: '/admin/apps',
           roles: ['owner', 'super_admin', 'manager', 'platform_admin'],
           badge: 'Store',
-          badgeColor: 'bg-purple-500/10 text-purple-400 border-purple-500/20',
+          badgeColor: 'bg-purple-500/15 text-purple-300 border-purple-500/30',
           icon: (
             <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
@@ -280,11 +281,11 @@ export default function AdminSidebar({
           ),
         },
         {
-          name: 'API & Développeur',
+          name: 'API Développeur',
           href: '/admin/settings/api',
           roles: ['owner', 'super_admin', 'platform_admin'],
-          badge: 'REST v1',
-          badgeColor: 'bg-blue-500/10 text-blue-400 border-blue-500/20',
+          badge: 'REST',
+          badgeColor: 'bg-blue-500/15 text-blue-300 border-blue-500/30',
           icon: (
             <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
@@ -295,8 +296,8 @@ export default function AdminSidebar({
           name: 'Webhooks & Événements',
           href: '/admin/settings/webhooks',
           roles: ['owner', 'super_admin', 'platform_admin'],
-          badge: 'Events',
-          badgeColor: 'bg-purple-500/10 text-purple-400 border-purple-500/20',
+          badge: 'HMAC',
+          badgeColor: 'bg-purple-500/15 text-purple-300 border-purple-500/30',
           icon: (
             <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
@@ -318,13 +319,13 @@ export default function AdminSidebar({
   ];
 
   return (
-    <aside className="w-72 bg-slate-950/95 border-r border-slate-800/80 flex flex-col justify-between shrink-0 shadow-2xl z-40 backdrop-blur-2xl">
+    <aside className="w-72 bg-[#090d16] border-r border-white/[0.08] flex flex-col justify-between shrink-0 shadow-2xl z-40 backdrop-blur-2xl">
       <div className="flex-1 overflow-y-auto">
-        {/* Brand & Organization Title Header */}
-        <div className="p-5 border-b border-slate-800/80 bg-slate-900/40">
-          <div className="flex items-center gap-3.5">
+        {/* Brand & Organization Header */}
+        <div className="p-4 sm:p-5 border-b border-white/[0.08] bg-surface-raised/30">
+          <div className="flex items-center gap-3">
             <div
-              className="w-11 h-11 rounded-2xl flex items-center justify-center font-black text-white shadow-xl shadow-blue-500/10 text-xs shrink-0 border border-slate-700"
+              className="w-10 h-10 rounded-xl flex items-center justify-center font-black text-white shadow-lg shadow-blue-500/10 text-xs shrink-0 border border-white/[0.12]"
               style={{ backgroundColor: brandColorPrimary }}
             >
               <svg className="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
@@ -332,15 +333,15 @@ export default function AdminSidebar({
               </svg>
             </div>
 
-            <div className="overflow-hidden min-w-0">
-              <h2 className="font-extrabold text-slate-100 leading-tight truncate text-sm">
+            <div className="overflow-hidden min-w-0 flex-1">
+              <h2 className="font-extrabold text-text-primary leading-tight truncate text-sm">
                 {orgName}
               </h2>
               <div className="flex items-center gap-2 mt-1">
-                <span className="inline-block px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 text-[9px] font-black uppercase tracking-wider">
+                <Badge variant="info" size="sm">
                   {planSlug}
-                </span>
-                <span className="text-[10px] text-slate-500 font-medium">Cockpit Pro</span>
+                </Badge>
+                <span className="text-[10px] text-text-muted font-medium">Cockpit Atelier</span>
               </div>
             </div>
           </div>
@@ -354,7 +355,7 @@ export default function AdminSidebar({
 
             return (
               <div key={sIdx} className="space-y-1">
-                <h3 className="px-3 text-[10px] font-black uppercase tracking-wider text-slate-500 mb-1.5">
+                <h3 className="px-3 text-[10px] font-bold uppercase tracking-wider text-text-muted mb-1.5">
                   {section.title}
                 </h3>
 
@@ -365,18 +366,22 @@ export default function AdminSidebar({
                       <Link
                         key={item.href}
                         href={item.href}
-                        className={`flex items-center justify-between px-3 py-2 text-xs font-semibold rounded-xl transition duration-150 group ${
+                        className={`relative flex items-center justify-between px-3 py-2 text-xs font-semibold rounded-xl transition duration-150 group ${
                           isActive
-                            ? 'bg-blue-600 text-white shadow-lg shadow-blue-600/20'
-                            : 'text-slate-400 hover:text-slate-100 hover:bg-slate-900/80'
+                            ? 'bg-gradient-to-r from-blue-500/20 via-blue-500/10 to-transparent text-white shadow-sm border border-blue-500/30'
+                            : 'text-text-secondary hover:text-text-primary hover:bg-white/[0.04]'
                         }`}
                       >
+                        {isActive && (
+                          <span className="absolute left-0 top-2 bottom-2 w-[3px] bg-accent rounded-r-full shadow-[0_0_8px_#3b82f6]" />
+                        )}
+
                         <div className="flex items-center gap-3 min-w-0">
                           <span
                             className={
                               isActive
-                                ? 'text-white'
-                                : 'text-slate-500 group-hover:text-slate-300 transition'
+                                ? 'text-accent'
+                                : 'text-text-muted group-hover:text-text-primary transition'
                             }
                           >
                             {item.icon}
@@ -387,7 +392,7 @@ export default function AdminSidebar({
                         {item.badge && (
                           <span
                             className={`ml-2 px-1.5 py-0.5 rounded text-[9px] font-mono font-bold shrink-0 border ${
-                              item.badgeColor || 'bg-slate-800 text-slate-300 border-slate-700'
+                              item.badgeColor || 'bg-white/[0.04] text-text-secondary border-white/[0.08]'
                             }`}
                           >
                             {item.badge}
@@ -404,13 +409,18 @@ export default function AdminSidebar({
       </div>
 
       {/* User Session & Logout Footer */}
-      <div className="p-4 border-t border-slate-800/80 bg-slate-900/40">
-        <div className="flex items-center justify-between mb-3 px-2">
-          <div className="overflow-hidden min-w-0">
-            <p className="text-xs font-bold text-slate-200 truncate">{username}</p>
-            <p className="text-[10px] text-blue-400 font-bold uppercase tracking-wider">
-              {role.replace('_', ' ')}
-            </p>
+      <div className="p-4 border-t border-white/[0.08] bg-surface-raised/40 space-y-3">
+        <div className="flex items-center justify-between px-1">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-8 h-8 rounded-lg bg-surface-overlay border border-white/[0.08] flex items-center justify-center font-bold text-xs text-text-primary shrink-0">
+              {username.charAt(0).toUpperCase()}
+            </div>
+            <div className="overflow-hidden min-w-0">
+              <p className="text-xs font-bold text-text-primary truncate">{username}</p>
+              <p className="text-[10px] text-accent font-semibold uppercase tracking-wider">
+                {role.replace('_', ' ')}
+              </p>
+            </div>
           </div>
         </div>
         <SignOutButton />

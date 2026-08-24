@@ -1,27 +1,31 @@
 @import "tailwindcss";
 
 @theme {
-  /* Surfaces */
-  --color-surface-base: #020617;      /* app background */
-  --color-surface-raised: #0f172a;    /* cards, panels */
-  --color-surface-overlay: #1e293b;   /* modals, dropdowns, elevated items */
-  --color-surface-hover: #1e293b;     /* hover state on raised surfaces */
+  /* Surfaces - Tier-1 Automotive Midnight Elevation */
+  --color-surface-base: #060911;       /* deep midnight backdrop */
+  --color-surface-raised: #0d1322;     /* structured cards, sidebars */
+  --color-surface-overlay: #131c31;    /* dropdowns, modals, popovers */
+  --color-surface-hover: #192541;      /* hover states on interactive cards */
+  --color-surface-active: #202e50;     /* selected / pressed states */
 
-  /* Borders */
-  --color-border-subtle: #1e293b;     /* subtle card borders */
-  --color-border-default: #334155;    /* standard borders */
+  /* Borders - Precision Hairline Strokes */
+  --color-border-subtle: rgba(255, 255, 255, 0.07);
+  --color-border-default: rgba(255, 255, 255, 0.12);
+  --color-border-strong: rgba(255, 255, 255, 0.22);
+  --color-border-accent: rgba(59, 130, 246, 0.40);
 
-  /* Text */
+  /* Typography Colors */
   --color-text-primary: #f8fafc;
-  --color-text-secondary: #cbd5e1;
-  --color-text-muted: #94a3b8;
-  --color-text-disabled: #64748b;
+  --color-text-secondary: #94a3b8;
+  --color-text-muted: #64748b;
+  --color-text-disabled: #475569;
 
-  /* Brand / Accent */
-  --color-accent: #2563eb;
-  --color-accent-hover: #3b82f6;
+  /* Automotive Electric Accents */
+  --color-accent: #3b82f6;
+  --color-accent-hover: #60a5fa;
+  --color-accent-dark: #1d4ed8;
 
-  /* Semantic status tokens */
+  /* Status Colors */
   --color-success: #10b981;
   --color-warning: #f59e0b;
   --color-danger: #ef4444;
@@ -30,7 +34,7 @@
 
 @layer base {
   :root {
-    --background: #020617;
+    --background: #060911;
     --foreground: #f8fafc;
   }
 
@@ -38,57 +42,87 @@
     background-color: var(--background);
     color: var(--foreground);
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 }
 
-/* Custom Smooth Scrollbar */
+/* Linear / Shopify Polaris Card Surface Effect */
+.linear-card {
+  background: radial-gradient(120% 120% at 50% 0%, rgba(255, 255, 255, 0.03) 0%, rgba(255, 255, 255, 0) 100%), #0d1322;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.06), 0 4px 20px -2px rgba(0, 0, 0, 0.5);
+}
+
+.linear-card-interactive {
+  background: radial-gradient(120% 120% at 50% 0%, rgba(255, 255, 255, 0.03) 0%, rgba(255, 255, 255, 0) 100%), #0d1322;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.06), 0 4px 20px -2px rgba(0, 0, 0, 0.5);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.linear-card-interactive:hover {
+  background: radial-gradient(120% 120% at 50% 0%, rgba(59, 130, 246, 0.06) 0%, rgba(255, 255, 255, 0) 100%), #10182b;
+  border-color: rgba(59, 130, 246, 0.3);
+  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.1), 0 8px 30px -4px rgba(0, 0, 0, 0.7);
+  transform: translateY(-1px);
+}
+
+/* Linear Primary Button */
+.linear-btn-primary {
+  background: linear-gradient(180deg, #3b82f6 0%, #1d4ed8 100%);
+  border: 1px solid #2563eb;
+  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.25), 0 2px 8px -1px rgba(37, 99, 235, 0.5);
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.2);
+}
+
+.linear-btn-primary:hover {
+  background: linear-gradient(180deg, #60a5fa 0%, #2563eb 100%);
+  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.35), 0 4px 14px -1px rgba(37, 99, 235, 0.6);
+}
+
+/* Linear Secondary Button */
+.linear-btn-secondary {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.06) 0%, rgba(255, 255, 255, 0.02) 100%), #131c31;
+  border: 1px solid rgba(255, 255, 255, 0.10);
+  box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.06), 0 2px 4px 0 rgba(0, 0, 0, 0.3);
+}
+
+.linear-btn-secondary:hover {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.09) 0%, rgba(255, 255, 255, 0.04) 100%), #18243e;
+  border-color: rgba(255, 255, 255, 0.18);
+  color: #ffffff;
+}
+
+/* Linear Input Styling */
+.linear-input {
+  background-color: #080d18;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  box-shadow: inset 0 1px 2px 0 rgba(0, 0, 0, 0.4);
+  transition: all 0.15s ease-in-out;
+}
+
+.linear-input:focus {
+  border-color: #3b82f6;
+  box-shadow: inset 0 1px 2px 0 rgba(0, 0, 0, 0.4), 0 0 0 3px rgba(59, 130, 246, 0.15);
+  background-color: #0b1120;
+}
+
+/* Sleek Scrollbar */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
 }
 
 ::-webkit-scrollbar-track {
-  background: #020617;
+  background: #060911;
 }
 
 ::-webkit-scrollbar-thumb {
-  background: #1e293b;
+  background: #192541;
   border-radius: 9999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: #334155;
-}
-
-/* 3D Transform Utilities */
-.perspective-1000 {
-  perspective: 1000px;
-}
-
-.preserve-3d {
-  transform-style: preserve-3d;
-}
-
-.backface-hidden {
-  backface-visibility: hidden;
-}
-
-.rotate-y-180 {
-  transform: rotateY(180deg);
-}
-
-/* Animations */
-@keyframes shimmer {
-  0% {
-    background-position: -200% 0;
-  }
-  100% {
-    background-position: 200% 0;
-  }
-}
-
-.animate-shimmer {
-  background: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0) 100%);
-  background-size: 200% 100%;
-  animation: shimmer 3s infinite;
+  background: #25365d;
 }

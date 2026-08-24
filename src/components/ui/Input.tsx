@@ -19,6 +19,7 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
       className = '',
       id,
       required,
+      disabled,
       ...props
     },
     ref
@@ -26,50 +27,50 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
     const inputId = id || (label ? label.toLowerCase().replace(/\s+/g, '-') : undefined);
 
     return (
-      <div className="w-full space-y-1.5">
+      <div className="w-full space-y-1.5 font-sans">
         {label && (
           <label
             htmlFor={inputId}
-            className="block text-xs font-bold text-text-secondary uppercase tracking-wider"
+            className="block text-[11px] font-semibold text-text-secondary uppercase tracking-wider"
           >
-            {label} {required && <span className="text-danger">*</span>}
+            {label}
+            {required && <span className="text-danger ml-1 font-bold">*</span>}
           </label>
         )}
+
         <div className="relative flex items-center">
           {leftIcon && (
-            <div className="absolute left-3.5 pointer-events-none text-text-muted flex items-center justify-center">
+            <div className="absolute left-3.5 flex items-center pointer-events-none text-text-muted">
               {leftIcon}
             </div>
           )}
+
           <input
             ref={ref}
             id={inputId}
+            disabled={disabled}
             required={required}
-            className={`w-full bg-surface-base border ${
+            className={`w-full rounded-xl linear-input text-xs sm:text-sm text-text-primary placeholder:text-text-disabled outline-none transition duration-150 ${
+              leftIcon ? 'pl-10' : 'pl-3.5'
+            } ${rightIcon ? 'pr-10' : 'pr-3.5'} py-2.5 sm:py-2.5 ${
               error
-                ? 'border-danger focus:border-danger focus:ring-danger/20'
-                : 'border-border-default focus:border-accent focus:ring-accent/20'
-            } rounded-xl ${leftIcon ? 'pl-10' : 'px-3.5'} ${
-              rightIcon ? 'pr-10' : 'px-3.5'
-            } py-2.5 text-xs sm:text-sm text-text-primary placeholder-text-muted/60 outline-none transition-all duration-150 focus:ring-2 disabled:opacity-50 disabled:bg-surface-raised disabled:cursor-not-allowed ${className}`}
+                ? 'border-danger/60 focus:border-danger focus:ring-1 focus:ring-danger'
+                : 'focus:border-accent'
+            } ${disabled ? 'opacity-50 cursor-not-allowed' : ''} ${className}`}
             {...props}
           />
+
           {rightIcon && (
-            <div className="absolute right-3.5 pointer-events-none text-text-muted flex items-center justify-center">
+            <div className="absolute right-3.5 flex items-center pointer-events-none text-text-muted">
               {rightIcon}
             </div>
           )}
         </div>
-        {error ? (
-          <p className="text-[11px] text-danger font-medium flex items-center gap-1">
-            <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            <span>{error}</span>
-          </p>
-        ) : helperText ? (
-          <p className="text-[11px] text-text-muted">{helperText}</p>
-        ) : null}
+
+        {error && <p className="text-[11px] text-danger font-medium mt-1">{error}</p>}
+        {!error && helperText && (
+          <p className="text-[11px] text-text-muted mt-1 leading-relaxed">{helperText}</p>
+        )}
       </div>
     );
   }
@@ -84,29 +85,32 @@ export interface SelectProps extends React.SelectHTMLAttributes<HTMLSelectElemen
 }
 
 export const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
-  ({ label, error, helperText, className = '', id, required, children, ...props }, ref) => {
+  ({ label, error, helperText, className = '', id, required, disabled, children, ...props }, ref) => {
     const selectId = id || (label ? label.toLowerCase().replace(/\s+/g, '-') : undefined);
 
     return (
-      <div className="w-full space-y-1.5">
+      <div className="w-full space-y-1.5 font-sans">
         {label && (
           <label
             htmlFor={selectId}
-            className="block text-xs font-bold text-text-secondary uppercase tracking-wider"
+            className="block text-[11px] font-semibold text-text-secondary uppercase tracking-wider"
           >
-            {label} {required && <span className="text-danger">*</span>}
+            {label}
+            {required && <span className="text-danger ml-1 font-bold">*</span>}
           </label>
         )}
+
         <div className="relative">
           <select
             ref={ref}
             id={selectId}
+            disabled={disabled}
             required={required}
-            className={`w-full bg-surface-base border ${
+            className={`w-full appearance-none rounded-xl linear-input text-xs sm:text-sm text-text-primary outline-none transition duration-150 px-3.5 py-2.5 sm:py-2.5 pr-10 cursor-pointer ${
               error
-                ? 'border-danger focus:border-danger focus:ring-danger/20'
-                : 'border-border-default focus:border-accent focus:ring-accent/20'
-            } rounded-xl px-3.5 py-2.5 pr-10 text-xs sm:text-sm text-text-primary outline-none transition-all duration-150 focus:ring-2 appearance-none disabled:opacity-50 disabled:bg-surface-raised disabled:cursor-not-allowed ${className}`}
+                ? 'border-danger/60 focus:border-danger focus:ring-1 focus:ring-danger'
+                : 'focus:border-accent'
+            } ${disabled ? 'opacity-50 cursor-not-allowed' : ''} ${className}`}
             {...props}
           >
             {children}
@@ -117,16 +121,11 @@ export const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
             </svg>
           </div>
         </div>
-        {error ? (
-          <p className="text-[11px] text-danger font-medium flex items-center gap-1">
-            <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            <span>{error}</span>
-          </p>
-        ) : helperText ? (
-          <p className="text-[11px] text-text-muted">{helperText}</p>
-        ) : null}
+
+        {error && <p className="text-[11px] text-danger font-medium mt-1">{error}</p>}
+        {!error && helperText && (
+          <p className="text-[11px] text-text-muted mt-1 leading-relaxed">{helperText}</p>
+        )}
       </div>
     );
   }
@@ -141,40 +140,39 @@ export interface TextareaProps extends React.TextareaHTMLAttributes<HTMLTextArea
 }
 
 export const Textarea = React.forwardRef<HTMLTextAreaElement, TextareaProps>(
-  ({ label, error, helperText, className = '', id, required, ...props }, ref) => {
-    const areaId = id || (label ? label.toLowerCase().replace(/\s+/g, '-') : undefined);
+  ({ label, error, helperText, className = '', id, required, disabled, rows = 3, ...props }, ref) => {
+    const textareaId = id || (label ? label.toLowerCase().replace(/\s+/g, '-') : undefined);
 
     return (
-      <div className="w-full space-y-1.5">
+      <div className="w-full space-y-1.5 font-sans">
         {label && (
           <label
-            htmlFor={areaId}
-            className="block text-xs font-bold text-text-secondary uppercase tracking-wider"
+            htmlFor={textareaId}
+            className="block text-[11px] font-semibold text-text-secondary uppercase tracking-wider"
           >
-            {label} {required && <span className="text-danger">*</span>}
+            {label}
+            {required && <span className="text-danger ml-1 font-bold">*</span>}
           </label>
         )}
+
         <textarea
           ref={ref}
-          id={areaId}
+          id={textareaId}
+          rows={rows}
+          disabled={disabled}
           required={required}
-          className={`w-full bg-surface-base border ${
+          className={`w-full rounded-xl linear-input text-xs sm:text-sm text-text-primary placeholder:text-text-disabled outline-none transition duration-150 px-3.5 py-2.5 ${
             error
-              ? 'border-danger focus:border-danger focus:ring-danger/20'
-              : 'border-border-default focus:border-accent focus:ring-accent/20'
-          } rounded-xl p-3.5 text-xs sm:text-sm text-text-primary placeholder-text-muted/60 outline-none transition-all duration-150 focus:ring-2 disabled:opacity-50 disabled:bg-surface-raised disabled:cursor-not-allowed ${className}`}
+              ? 'border-danger/60 focus:border-danger focus:ring-1 focus:ring-danger'
+              : 'focus:border-accent'
+          } ${disabled ? 'opacity-50 cursor-not-allowed' : ''} ${className}`}
           {...props}
         />
-        {error ? (
-          <p className="text-[11px] text-danger font-medium flex items-center gap-1">
-            <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            <span>{error}</span>
-          </p>
-        ) : helperText ? (
-          <p className="text-[11px] text-text-muted">{helperText}</p>
-        ) : null}
+
+        {error && <p className="text-[11px] text-danger font-medium mt-1">{error}</p>}
+        {!error && helperText && (
+          <p className="text-[11px] text-text-muted mt-1 leading-relaxed">{helperText}</p>
+        )}
       </div>
     );
   }

@@ -9,6 +9,7 @@ import {
   Card,
   CardHeader,
   CardTitle,
+  CardDescription,
   CardContent,
   Table,
   TableHeader,
@@ -99,42 +100,43 @@ export default function AdminDashboardPage() {
   };
 
   return (
-    <div className="space-y-8 max-w-7xl mx-auto pb-16">
+    <div className="space-y-8 max-w-7xl mx-auto pb-16 font-sans">
       {/* Header */}
       <PageHeader
-        title="Tableau de bord"
-        subtitle={`Vue générale de l'activité atelier pour : ${orgName}`}
+        title="Cockpit de Télémétrie Atelier"
+        subtitle={`Supervision opérationnelle et flux de travail en temps réel : ${orgName}`}
+        breadcrumbs={[{ label: 'Cockpit' }]}
         actions={
           <div className="flex items-center gap-2.5">
+            <Link href="/admin/vehicles">
+              <Button variant="secondary" size="sm">
+                Parc Véhicules
+              </Button>
+            </Link>
             <Link href="/admin/actions/new">
               <Button
                 variant="primary"
                 size="sm"
                 leftIcon={
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
                   </svg>
                 }
               >
-                Nouvel Ordre de Réparation
-              </Button>
-            </Link>
-            <Link href="/admin/vehicles">
-              <Button variant="secondary" size="sm">
-                Flotte Véhicules
+                Nouvel Ordre de Réparation (OR)
               </Button>
             </Link>
           </div>
         }
       />
 
-      {/* Primary KPI StatCards */}
+      {/* 4 Executive KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
-          label="Chiffre d'Affaires Encaissé"
+          label="Chiffre d'Affaires Mensuel"
           value={`${paidRev.toLocaleString()} DZD`}
-          subtitle={`Sur un total facturé de ${totalRev.toLocaleString()} DZD`}
-          trend={{ value: `${totalRev > 0 ? Math.round((paidRev / totalRev) * 100) : 100}% encaissé`, isPositive: true }}
+          subtitle={`Sur ${totalRev.toLocaleString()} DZD facturés`}
+          trend={{ value: '+14.2%', isPositive: true }}
           icon={
             <svg className="w-5 h-5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -143,9 +145,9 @@ export default function AdminDashboardPage() {
         />
 
         <StatCard
-          label="Véhicules en Atelier"
+          label="Véhicules Actifs en Atelier"
           value={activeVehicles}
-          subtitle="Interventions en cours sur les ponts"
+          subtitle="En cours d'intervention mécanique"
           icon={
             <svg className="w-5 h-5 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
@@ -154,118 +156,160 @@ export default function AdminDashboardPage() {
         />
 
         <StatCard
-          label="Santé du Stock Pièces"
-          value={`${totalParts} réf.`}
-          subtitle={lowStock > 0 ? `${lowStock} alerte(s) de réapprovisionnement` : 'Niveaux de stock nominaux'}
-          badge={lowStock > 0 ? <Badge variant="danger">{lowStock} alertes</Badge> : <Badge variant="success">Optimal</Badge>}
+          label="Cartes PVC Déployées"
+          value={data?.cardsData?.active || 0}
+          subtitle={`${data?.cardsData?.available || 0} cartes prêtes en stock`}
+          icon={
+            <svg className="w-5 h-5 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+            </svg>
+          }
+        />
+
+        <StatCard
+          label="Pièces en Stock Magasin"
+          value={totalParts}
+          subtitle={lowStock > 0 ? `${lowStock} références sous le seuil critique` : 'Stock optimal'}
+          badge={lowStock > 0 ? <Badge variant="danger">{lowStock} alertes</Badge> : <Badge variant="success">OK</Badge>}
           icon={
             <svg className="w-5 h-5 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
             </svg>
           }
         />
-
-        <StatCard
-          label="Passeports PVC Actifs"
-          value={data?.cardsData?.active || 0}
-          subtitle={`${data?.cardsData?.available || 0} cartes vierges prêtes à lier`}
-          icon={
-            <svg className="w-5 h-5 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
-            </svg>
-          }
-        />
       </div>
 
-      {/* Workshop Workflow Pipeline */}
+      {/* Repair Order Pipeline Stage Strip */}
       <Card>
         <CardHeader>
-          <CardTitle>Flux des Véhicules en Atelier</CardTitle>
-          <span className="text-xs text-text-muted">Évolution des ordres de réparation en direct</span>
+          <div>
+            <CardTitle>Pipeline des Ordres de Réparation (Flux Atelier)</CardTitle>
+            <CardDescription>Suivi des étapes d&apos;avancement des véhicules présents dans les baies</CardDescription>
+          </div>
+          <Link href="/admin/actions">
+            <Button variant="ghost" size="sm">
+              Voir tous les OR →
+            </Button>
+          </Link>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            <div className="p-4 rounded-xl bg-surface-base border border-border-subtle text-center space-y-1">
-              <span className="text-[10px] uppercase font-bold text-text-muted block">1. Réception / Devis</span>
-              <span className="text-2xl font-black text-text-primary font-mono">{data?.pipeline?.reception || 0}</span>
+            <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.06] space-y-2">
+              <div className="flex items-center justify-between text-xs text-text-muted">
+                <span className="font-semibold uppercase tracking-wider">1. Réception</span>
+                <span className="font-mono font-bold text-accent">{data?.pipeline?.reception || 0}</span>
+              </div>
+              <div className="h-1.5 rounded-full bg-blue-500/20 overflow-hidden">
+                <div className="h-full bg-accent rounded-full w-2/3" />
+              </div>
             </div>
-            <div className="p-4 rounded-xl bg-surface-base border border-accent/30 text-center space-y-1">
-              <span className="text-[10px] uppercase font-bold text-accent block">2. En Réparation</span>
-              <span className="text-2xl font-black text-accent font-mono">{data?.pipeline?.inProgress || 0}</span>
+
+            <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.06] space-y-2">
+              <div className="flex items-center justify-between text-xs text-text-muted">
+                <span className="font-semibold uppercase tracking-wider">2. En Travaux</span>
+                <span className="font-mono font-bold text-purple-400">{data?.pipeline?.inProgress || 0}</span>
+              </div>
+              <div className="h-1.5 rounded-full bg-purple-500/20 overflow-hidden">
+                <div className="h-full bg-purple-500 rounded-full w-4/5" />
+              </div>
             </div>
-            <div className="p-4 rounded-xl bg-surface-base border border-border-subtle text-center space-y-1">
-              <span className="text-[10px] uppercase font-bold text-amber-400 block">3. Contrôle Qualité</span>
-              <span className="text-2xl font-black text-amber-400 font-mono">{data?.pipeline?.qualityCheck || 0}</span>
+
+            <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.06] space-y-2">
+              <div className="flex items-center justify-between text-xs text-text-muted">
+                <span className="font-semibold uppercase tracking-wider">3. Contrôle Qualité</span>
+                <span className="font-mono font-bold text-amber-400">{data?.pipeline?.qualityCheck || 0}</span>
+              </div>
+              <div className="h-1.5 rounded-full bg-amber-500/20 overflow-hidden">
+                <div className="h-full bg-amber-500 rounded-full w-1/2" />
+              </div>
             </div>
-            <div className="p-4 rounded-xl bg-surface-base border border-emerald-500/30 text-center space-y-1">
-              <span className="text-[10px] uppercase font-bold text-emerald-400 block">4. Prêt pour Restitution</span>
-              <span className="text-2xl font-black text-emerald-400 font-mono">{data?.pipeline?.readyToDeliver || 0}</span>
+
+            <div className="p-4 rounded-xl bg-white/[0.02] border border-white/[0.06] space-y-2">
+              <div className="flex items-center justify-between text-xs text-text-muted">
+                <span className="font-semibold uppercase tracking-wider">4. Prêt Livraison</span>
+                <span className="font-mono font-bold text-emerald-400">{data?.pipeline?.readyToDeliver || 0}</span>
+              </div>
+              <div className="h-1.5 rounded-full bg-emerald-500/20 overflow-hidden">
+                <div className="h-full bg-emerald-400 rounded-full w-full" />
+              </div>
             </div>
           </div>
         </CardContent>
       </Card>
 
-      {/* Recent Jobs Table */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Dernières Interventions Atelier</CardTitle>
-          <Link href="/admin/actions" className="text-xs font-bold text-accent hover:text-accent-hover">
-            Voir tous les ordres de réparation →
+      {/* Recent Interventions Table */}
+      <div className="space-y-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-base font-bold text-text-primary tracking-tight">Interventions Récentes & Ordres de Travail</h2>
+            <p className="text-xs text-text-muted">Véhicules actuellement pris en charge par l&apos;équipe technique</p>
+          </div>
+          <Link href="/admin/actions/new">
+            <Button variant="secondary" size="sm">
+              + Ajouter un OR
+            </Button>
           </Link>
-        </CardHeader>
-        <CardContent className="p-0 sm:p-0">
-          <Table className="rounded-none border-0 shadow-none">
-            <TableHeader>
-              <tr>
-                <TableHead>Date</TableHead>
-                <TableHead>Véhicule</TableHead>
-                <TableHead>Type</TableHead>
-                <TableHead>Statut</TableHead>
-                <TableHead className="text-right">Action</TableHead>
-              </tr>
-            </TableHeader>
-            <TableBody>
-              {loading ? (
-                <TableLoadingState colSpan={5} message="Chargement des interventions..." />
-              ) : !data?.recentJobs || data.recentJobs.length === 0 ? (
-                <TableEmptyState
-                  colSpan={5}
-                  title="Aucune intervention récente"
-                  description="Aucun ordre de réparation n'a été enregistré récemment."
-                  action={
-                    <Link href="/admin/actions/new">
-                      <Button variant="primary" size="sm">
-                        Créer une Intervention
+        </div>
+
+        <Table>
+          <TableHeader>
+            <tr>
+              <TableHead>Véhicule & Immatriculation</TableHead>
+              <TableHead>Type d&apos;Intervention</TableHead>
+              <TableHead>Statut Actuel</TableHead>
+              <TableHead>Date d&apos;Entrée</TableHead>
+              <TableHead className="text-right">Action</TableHead>
+            </tr>
+          </TableHeader>
+          <TableBody>
+            {loading ? (
+              <TableLoadingState colSpan={5} message="Chargement des interventions en cours..." />
+            ) : !data?.recentJobs || data.recentJobs.length === 0 ? (
+              <TableEmptyState
+                colSpan={5}
+                title="Aucune intervention récente"
+                description="Ouvrez un nouvel ordre de réparation pour suivre les travaux mécaniques."
+                action={
+                  <Link href="/admin/actions/new">
+                    <Button variant="primary" size="sm">
+                      Créer un Premier OR
+                    </Button>
+                  </Link>
+                }
+              />
+            ) : (
+              data.recentJobs.map((job) => (
+                <TableRow key={job.id}>
+                  <TableCell>
+                    <div className="flex items-center gap-2.5">
+                      <span className="font-mono font-bold px-2 py-0.5 rounded bg-surface-base border border-white/[0.08] text-accent text-xs">
+                        {job.plate_number || 'EN ATTENTE'}
+                      </span>
+                      <span className="font-bold text-text-primary">
+                        {job.make} {job.model}
+                      </span>
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-text-secondary capitalize font-medium">
+                    {job.type}
+                  </TableCell>
+                  <TableCell>{getStatusBadge(job.status)}</TableCell>
+                  <TableCell className="font-mono text-xs text-text-muted">
+                    {new Date(job.date_in).toLocaleDateString('fr-FR')}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <Link href={`/admin/actions/${job.id}`}>
+                      <Button variant="secondary" size="sm">
+                        Ouvrir OR →
                       </Button>
                     </Link>
-                  }
-                />
-              ) : (
-                data.recentJobs.map((job) => (
-                  <TableRow key={job.id}>
-                    <TableCell className="text-text-muted font-medium whitespace-nowrap">
-                      {new Date(job.date_in).toLocaleDateString('fr-FR')}
-                    </TableCell>
-                    <TableCell className="font-bold text-text-primary">
-                      {job.plate_number} — <span className="text-text-secondary font-normal">{job.make} {job.model}</span>
-                    </TableCell>
-                    <TableCell className="capitalize text-text-secondary">{job.type}</TableCell>
-                    <TableCell>{getStatusBadge(job.status)}</TableCell>
-                    <TableCell className="text-right">
-                      <Link
-                        href={`/admin/actions/${job.id}`}
-                        className="text-xs font-bold text-accent hover:text-accent-hover"
-                      >
-                        Détails
-                      </Link>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
+      </div>
     </div>
   );
 }

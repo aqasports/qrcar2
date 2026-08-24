@@ -8,7 +8,7 @@ export function Table({
   ...props
 }: React.HTMLAttributes<HTMLTableElement>) {
   return (
-    <div className="w-full overflow-x-auto rounded-xl border border-border-subtle bg-surface-raised shadow-xl shadow-black/20">
+    <div className="w-full overflow-x-auto rounded-2xl linear-card">
       <table className={`w-full text-left border-collapse text-xs sm:text-sm ${className}`} {...props}>
         {children}
       </table>
@@ -23,7 +23,7 @@ export function TableHeader({
 }: React.HTMLAttributes<HTMLTableSectionElement>) {
   return (
     <thead
-      className={`bg-surface-base/60 border-b border-border-subtle text-text-muted text-[11px] font-bold uppercase tracking-wider ${className}`}
+      className={`bg-surface-base/80 backdrop-blur-md border-b border-border-subtle text-text-muted text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider ${className}`}
       {...props}
     >
       {children}
@@ -37,7 +37,7 @@ export function TableBody({
   ...props
 }: React.HTMLAttributes<HTMLTableSectionElement>) {
   return (
-    <tbody className={`divide-y divide-border-subtle text-text-secondary ${className}`} {...props}>
+    <tbody className={`divide-y divide-white/[0.04] text-text-secondary ${className}`} {...props}>
       {children}
     </tbody>
   );
@@ -50,7 +50,7 @@ export function TableRow({
 }: React.HTMLAttributes<HTMLTableRowElement>) {
   return (
     <tr
-      className={`hover:bg-surface-overlay/50 transition-colors duration-100 group ${className}`}
+      className={`hover:bg-white/[0.02] transition-colors duration-150 group relative ${className}`}
       {...props}
     >
       {children}
@@ -64,7 +64,7 @@ export function TableHead({
   ...props
 }: React.ThHTMLAttributes<HTMLTableCellElement>) {
   return (
-    <th className={`px-4 py-3.5 font-bold ${className}`} {...props}>
+    <th className={`px-4 py-3 sm:px-5 sm:py-3.5 font-semibold text-text-muted select-none ${className}`} {...props}>
       {children}
     </th>
   );
@@ -76,7 +76,7 @@ export function TableCell({
   ...props
 }: React.TdHTMLAttributes<HTMLTableCellElement>) {
   return (
-    <td className={`px-4 py-3.5 align-middle ${className}`} {...props}>
+    <td className={`px-4 py-3.5 sm:px-5 sm:py-4 align-middle ${className}`} {...props}>
       {children}
     </td>
   );
@@ -91,7 +91,7 @@ export function TableLoadingState({
 }) {
   return (
     <tr>
-      <td colSpan={colSpan} className="py-12 text-center">
+      <td colSpan={colSpan} className="py-16 text-center">
         <div className="flex flex-col items-center justify-center gap-3">
           <Spinner size="md" />
           <p className="text-xs text-text-muted font-medium">{message}</p>
@@ -104,7 +104,7 @@ export function TableLoadingState({
 export function TableEmptyState({
   colSpan = 5,
   title = 'Aucune donnée disponible',
-  description = 'Aucun élément ne correspond aux filtres ou critères sélectionnés.',
+  description = 'Aucun élément ne correspond aux critères de sélection.',
   action,
 }: {
   colSpan?: number;
@@ -114,7 +114,7 @@ export function TableEmptyState({
 }) {
   return (
     <tr>
-      <td colSpan={colSpan} className="py-12 text-center">
+      <td colSpan={colSpan} className="py-16 px-4">
         <EmptyState title={title} description={description} action={action} />
       </td>
     </tr>

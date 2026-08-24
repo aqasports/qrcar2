@@ -25,23 +25,21 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
     ref
   ) => {
     const baseStyles =
-      'inline-flex items-center justify-center font-bold tracking-tight rounded-xl transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-surface-base active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none disabled:active:scale-100 cursor-pointer select-none';
+      'inline-flex items-center justify-center font-semibold tracking-tight rounded-xl transition-all duration-150 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-surface-base active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none disabled:active:scale-100 cursor-pointer select-none';
 
     const sizeStyles = {
-      sm: 'text-xs px-3 py-1.5 gap-1.5',
-      md: 'text-xs sm:text-sm px-4 py-2.5 gap-2',
-      lg: 'text-sm sm:text-base px-6 py-3.5 gap-2.5',
+      sm: 'text-xs px-3 py-1.5 gap-1.5 h-8',
+      md: 'text-xs sm:text-sm px-4 py-2 gap-2 h-9 sm:h-10',
+      lg: 'text-sm sm:text-base px-6 py-3 gap-2.5 h-11 sm:h-12',
     }[size];
 
     const variantStyles = {
-      primary:
-        'bg-accent hover:bg-accent-hover text-white shadow-lg shadow-blue-500/20 border border-blue-400/20 focus:ring-accent',
-      secondary:
-        'bg-surface-overlay hover:bg-surface-hover text-text-primary border border-border-default hover:border-text-muted/40 focus:ring-slate-500',
+      primary: 'linear-btn-primary text-white focus:ring-blue-500',
+      secondary: 'linear-btn-secondary text-text-primary focus:ring-slate-500',
       danger:
-        'bg-danger/10 hover:bg-danger/20 text-danger border border-danger/30 hover:border-danger/60 focus:ring-danger',
+        'bg-gradient-to-b from-red-500/20 to-red-600/30 text-red-300 border border-red-500/30 hover:border-red-500/60 hover:text-white shadow-sm focus:ring-red-500',
       ghost:
-        'bg-transparent hover:bg-surface-overlay text-text-muted hover:text-text-primary border border-transparent focus:ring-slate-500',
+        'bg-transparent hover:bg-surface-hover text-text-secondary hover:text-text-primary border border-transparent focus:ring-slate-500',
     }[variant];
 
     return (

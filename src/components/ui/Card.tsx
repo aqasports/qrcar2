@@ -1,7 +1,7 @@
 import React from 'react';
 
 export interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
-  variant?: 'default' | 'interactive';
+  variant?: 'default' | 'interactive' | 'glass';
 }
 
 export function Card({
@@ -10,13 +10,12 @@ export function Card({
   variant = 'default',
   ...props
 }: CardProps) {
-  const baseStyles =
-    'bg-surface-raised border border-border-subtle rounded-2xl transition-all duration-200 overflow-hidden';
+  const baseStyles = 'rounded-2xl transition-all duration-200 overflow-hidden relative';
 
   const variantStyles = {
-    default: 'shadow-xl shadow-black/20',
-    interactive:
-      'shadow-xl shadow-black/20 hover:border-border-default hover:bg-surface-raised/95 hover:shadow-2xl hover:shadow-black/40 cursor-pointer group',
+    default: 'linear-card',
+    interactive: 'linear-card-interactive cursor-pointer group',
+    glass: 'bg-surface-raised/60 backdrop-blur-xl border border-white/[0.08] shadow-2xl shadow-black/40',
   }[variant];
 
   return (
@@ -33,7 +32,7 @@ export function CardHeader({
 }: React.HTMLAttributes<HTMLDivElement>) {
   return (
     <div
-      className={`p-5 sm:p-6 border-b border-border-subtle flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 ${className}`}
+      className={`px-5 py-4 sm:px-6 sm:py-5 border-b border-border-subtle flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 ${className}`}
       {...props}
     >
       {children}
@@ -48,7 +47,7 @@ export function CardTitle({
 }: React.HTMLAttributes<HTMLHeadingElement>) {
   return (
     <h3
-      className={`text-base sm:text-lg font-bold text-text-primary tracking-tight ${className}`}
+      className={`text-sm sm:text-base font-bold text-text-primary tracking-tight ${className}`}
       {...props}
     >
       {children}
@@ -62,7 +61,7 @@ export function CardDescription({
   ...props
 }: React.HTMLAttributes<HTMLParagraphElement>) {
   return (
-    <p className={`text-xs text-text-muted mt-1 leading-relaxed ${className}`} {...props}>
+    <p className={`text-[11px] sm:text-xs text-text-secondary mt-0.5 leading-relaxed font-normal ${className}`} {...props}>
       {children}
     </p>
   );
@@ -87,7 +86,7 @@ export function CardFooter({
 }: React.HTMLAttributes<HTMLDivElement>) {
   return (
     <div
-      className={`p-4 sm:p-5 border-t border-border-subtle bg-surface-base/30 flex items-center justify-between gap-3 ${className}`}
+      className={`px-5 py-3.5 sm:px-6 sm:py-4 border-t border-border-subtle bg-surface-base/40 flex items-center justify-between gap-3 ${className}`}
       {...props}
     >
       {children}

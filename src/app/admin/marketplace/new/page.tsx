@@ -4,6 +4,20 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ALGERIA_WILAYAS } from '@/lib/algeria-wilayas';
+import {
+  PageHeader,
+  Card,
+  CardHeader,
+  CardTitle,
+  CardContent,
+  CardFooter,
+  Badge,
+  Button,
+  Input,
+  Select,
+  Textarea,
+  Spinner,
+} from '@/components/ui';
 
 const CATEGORIES = [
   { id: 'motorisation', label: 'Moteur & Injection' },
@@ -88,8 +102,9 @@ export default function NewMarketplaceListingPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-3">
+        <Spinner size="lg" />
+        <p className="text-xs text-text-muted">Vérification des droits de publication...</p>
       </div>
     );
   }
@@ -98,203 +113,138 @@ export default function NewMarketplaceListingPage() {
   const isStarterBlocked = maxListings === 0;
 
   return (
-    <div className="space-y-8 font-sans max-w-4xl">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-black text-slate-100 tracking-tight">Publier une Pièce sur la Marketplace</h1>
-          <p className="text-sm text-slate-400 mt-1">
-            Renseignez les détails techniques précis pour permettre aux confrères garagistes de trouver votre pièce.
-          </p>
-        </div>
+    <form onSubmit={handleSubmit} className="space-y-8 max-w-4xl mx-auto pb-16 font-sans">
+      <PageHeader
+        title="Publier une Pièce sur la Place de Marché"
+        subtitle="Vendez vos pièces neuves, occasions testées ou surstocks aux autres ateliers professionnels"
+        breadcrumbs={[
+          { label: 'Tableau de bord', href: '/admin' },
+          { label: 'Marketplace', href: '/admin/marketplace' },
+          { label: 'Nouvelle Annonce' },
+        ]}
+      />
 
-        <Link
-          href="/admin/marketplace"
-          className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-400 text-xs font-semibold transition"
-        >
-          ← Retour au Catalogue
-        </Link>
-      </div>
-
-      {/* Starter Plan Gating Alert */}
       {isStarterBlocked && (
-        <div className="bg-amber-500/10 border border-amber-500/30 rounded-3xl p-6 text-amber-300 space-y-3">
-          <div className="flex items-center gap-3 font-bold text-amber-400">
-            <svg className="w-6 h-6 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            Publication réservée aux forfaits Pro & Enterprise
-          </div>
-          <p className="text-xs leading-relaxed text-slate-300">
-            Votre forfait <strong>Starter</strong> vous permet de consulter et d&apos;acheter des pièces auprès des confrères. Pour vendre vos propres pièces et surplus de stock, passez au forfait <strong>Pro</strong> (20 annonces/mois) ou <strong>Enterprise</strong> (annonces illimitées).
-          </p>
-          <Link
-            href="/admin/billing"
-            className="inline-block px-4 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-xl text-xs transition"
-          >
-            Mettre à Niveau mon Forfait →
+        <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/25 text-amber-300 text-xs flex items-center justify-between gap-4">
+          <span>
+            Le forfait <strong>Starter</strong> permet uniquement d&apos;acheter des pièces. Pour publier et vendre, passez au forfait <strong>Pro</strong>.
+          </span>
+          <Link href="/admin/billing">
+            <Button variant="primary" size="sm">
+              Débloquer Vendeur Pro
+            </Button>
           </Link>
         </div>
       )}
 
       {error && (
-        <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-xs">
+        <div className="p-4 rounded-xl bg-danger/10 border border-danger/25 text-danger text-xs font-semibold">
           {error}
         </div>
       )}
 
-      {!isStarterBlocked && (
-        <form onSubmit={handleSubmit} className="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-xl space-y-6">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="sm:col-span-2">
-              <label className="block text-xs font-semibold text-slate-300 mb-1">
-                Titre de l&apos;Annonce *
-              </label>
-              <input
-                type="text"
-                required
-                placeholder="ex: Injecteur Bosch Common Rail 0445110369 1.5 dCi"
-                value={formData.title}
-                onChange={(e) => setFormData({ ...formData, title: e.target.value })}
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-slate-100 focus:outline-none focus:border-blue-500 font-semibold"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1">
-                Référence OEM / Code Fabricant
-              </label>
-              <input
-                type="text"
-                placeholder="ex: 0445110369 ou 166006212R"
-                value={formData.oem_number}
-                onChange={(e) => setFormData({ ...formData, oem_number: e.target.value })}
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-slate-100 focus:outline-none focus:border-blue-500 font-mono"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1">Catégorie *</label>
-              <select
-                value={formData.category}
-                onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-slate-100 focus:outline-none focus:border-blue-500"
-              >
-                {CATEGORIES.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1">État de la Pièce *</label>
-              <select
-                value={formData.condition}
-                onChange={(e) => setFormData({ ...formData, condition: e.target.value })}
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-slate-100 focus:outline-none focus:border-blue-500"
-              >
-                {CONDITIONS.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.label}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1">Wilaya de Localisation *</label>
-              <select
-                value={formData.location_wilaya}
-                onChange={(e) => setFormData({ ...formData, location_wilaya: e.target.value })}
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-slate-100 focus:outline-none focus:border-blue-500"
-              >
-                {ALGERIA_WILAYAS.map((w) => (
-                  <option key={w.code} value={`${w.code} - ${w.name}`}>
-                    {w.code} - {w.name} ({w.arName})
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1">Marques Compatibles</label>
-              <input
-                type="text"
-                placeholder="ex: Renault, Dacia, Nissan"
-                value={formData.compatibility_makes}
-                onChange={(e) => setFormData({ ...formData, compatibility_makes: e.target.value })}
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-slate-100 focus:outline-none focus:border-blue-500"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1">Modèles & Motorisations</label>
-              <input
-                type="text"
-                placeholder="ex: Clio 4, Duster, Megane 3 1.5 dCi K9K"
-                value={formData.compatibility_models}
-                onChange={(e) => setFormData({ ...formData, compatibility_models: e.target.value })}
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-slate-100 focus:outline-none focus:border-blue-500"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1">Prix de Vente (DZD) *</label>
-              <input
-                type="number"
-                required
-                placeholder="25000"
-                value={formData.price}
-                onChange={(e) => setFormData({ ...formData, price: e.target.value })}
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-slate-100 font-mono font-bold focus:outline-none focus:border-blue-500"
-              />
-            </div>
-
-            <div>
-              <label className="block text-xs font-semibold text-slate-300 mb-1">Quantité Disponible</label>
-              <input
-                type="number"
-                min="1"
-                value={formData.quantity}
-                onChange={(e) => setFormData({ ...formData, quantity: e.target.value })}
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-slate-100 font-mono focus:outline-none focus:border-blue-500"
-              />
-            </div>
-
-            <div className="sm:col-span-2">
-              <label className="block text-xs font-semibold text-slate-300 mb-1">
-                Description, Test sur Banc & Modalités de Garantie
-              </label>
-              <textarea
-                rows={3}
-                placeholder="ex: Injecteur testé sur banc d'essai Hartridge, débits conformes aux valeurs constructeur. Vendu avec rapport de test et garantie atelier 30 jours."
-                value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-slate-100 focus:outline-none focus:border-blue-500"
-              ></textarea>
-            </div>
+      <Card>
+        <CardHeader>
+          <CardTitle>1. Identification & Spécifications de la Pièce</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <Input
+              label="Titre de l'Annonce"
+              required
+              placeholder="ex. Turbo Garrett 1.6 HDI 110ch Reconditionné"
+              value={formData.title}
+              onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+            />
+            <Input
+              label="Référence Constructeur / OEM"
+              placeholder="ex. 0375N0 / 753420-5005S"
+              value={formData.oem_number}
+              onChange={(e) => setFormData({ ...formData, oem_number: e.target.value.toUpperCase() })}
+              className="font-mono"
+            />
           </div>
 
-          <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-800">
-            <Link
-              href="/admin/marketplace"
-              className="px-4 py-2.5 rounded-xl bg-slate-800 text-slate-400 text-xs font-semibold"
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <Select
+              label="Catégorie Mécanique"
+              value={formData.category}
+              onChange={(e) => setFormData({ ...formData, category: e.target.value })}
             >
-              Annuler
-            </Link>
+              {CATEGORIES.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.label}
+                </option>
+              ))}
+            </Select>
 
-            <button
-              type="submit"
-              disabled={submitting}
-              className="px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold shadow-lg shadow-blue-600/20 transition disabled:opacity-50"
+            <Select
+              label="État de la Pièce"
+              value={formData.condition}
+              onChange={(e) => setFormData({ ...formData, condition: e.target.value })}
             >
-              {submitting ? 'Publication en cours...' : 'Publier l’Annonce'}
-            </button>
+              {CONDITIONS.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.label}
+                </option>
+              ))}
+            </Select>
           </div>
-        </form>
-      )}
-    </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <Input
+              label="Prix de Vente HT (DZD)"
+              type="number"
+              required
+              placeholder="ex. 45000"
+              value={formData.price}
+              onChange={(e) => setFormData({ ...formData, price: e.target.value })}
+            />
+            <Input
+              label="Quantité Disponible"
+              type="number"
+              min="1"
+              required
+              value={formData.quantity}
+              onChange={(e) => setFormData({ ...formData, quantity: e.target.value })}
+            />
+            <Select
+              label="Wilaya de Stockage"
+              value={formData.location_wilaya}
+              onChange={(e) => setFormData({ ...formData, location_wilaya: e.target.value })}
+            >
+              {ALGERIA_WILAYAS.map((w) => (
+                <option key={w.code} value={`${w.code} - ${w.name}`}>
+                  {w.code} - {w.name}
+                </option>
+              ))}
+            </Select>
+          </div>
+
+          <Textarea
+            label="Description Détaillée & Conditions de Garantie"
+            rows={4}
+            placeholder="Origine, kilométrage d'extraction, test sur banc d'essai, conditions d'échange standard..."
+            value={formData.description}
+            onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+          />
+        </CardContent>
+      </Card>
+
+      <div className="flex justify-end gap-3 pt-4 border-t border-border-subtle">
+        <Link href="/admin/marketplace">
+          <Button variant="secondary">
+            Annuler
+          </Button>
+        </Link>
+        <Button
+          type="submit"
+          disabled={isStarterBlocked}
+          isLoading={submitting}
+        >
+          Publier l&apos;Annonce B2B
+        </Button>
+      </div>
+    </form>
   );
 }

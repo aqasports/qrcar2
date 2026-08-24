@@ -1,6 +1,22 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import {
+  PageHeader,
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+  TableLoadingState,
+  TableEmptyState,
+  Badge,
+  Button,
+  Select,
+  Textarea,
+  Modal,
+} from '@/components/ui';
 
 interface PlatformApp {
   id: string;
@@ -81,218 +97,165 @@ export default function PlatformAdminAppsPage() {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'published':
-        return <span className="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">Publiée & Active</span>;
+      case 'approved':
+        return <Badge variant="success">Publiée & Active</Badge>;
       case 'submitted':
-        return <span className="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-amber-500/10 text-amber-400 border border-amber-500/20 animate-pulse">En Examen</span>;
+        return <Badge variant="warning" pulse>En Examen</Badge>;
       case 'rejected':
-        return <span className="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-red-500/10 text-red-400 border border-red-500/20">Refusée</span>;
+        return <Badge variant="danger">Refusée</Badge>;
       case 'suspended':
-        return <span className="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-red-900/40 text-red-300 border border-red-700">Suspendue</span>;
+        return <Badge variant="danger">Suspendue</Badge>;
       default:
-        return <span className="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-slate-800 text-slate-400 border border-slate-700">{status}</span>;
+        return <Badge variant="neutral">{status}</Badge>;
     }
   };
 
   return (
-    <div className="p-8 space-y-8 font-sans max-w-7xl">
-      {/* Header */}
-      <div>
-        <div className="flex items-center gap-2 text-xs font-bold text-red-400 uppercase tracking-widest mb-1">
-          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-          </svg>
-          Gouvernance & Écosystème
-        </div>
-        <h1 className="text-2xl font-black text-slate-100 tracking-tight">
-          Modération App Store & Extensions Tierces
-        </h1>
-        <p className="text-xs text-slate-400 mt-1">
-          Validez les nouvelles intégrations avant leur publication sur le store ou suspendez en urgence les applications suspectes.
-        </p>
-      </div>
+    <div className="space-y-8 max-w-7xl mx-auto pb-16 font-sans">
+      <PageHeader
+        title="Modération de l'App Store"
+        subtitle="Examen de conformité des applications développeurs tiers, validation des scopes et publication"
+        breadcrumbs={[
+          { label: 'Platform Admin', href: '/platform-admin' },
+          { label: 'Applications Tiers' },
+        ]}
+        badge={<Badge variant="danger">Super Admin</Badge>}
+      />
 
-      {/* Status Filters */}
-      <div className="flex flex-wrap gap-2 border-b border-slate-800 pb-4">
-        {[
-          { id: 'all', label: 'Toutes les Applications' },
-          { id: 'submitted', label: 'En Attente d’Examen' },
-          { id: 'published', label: 'Publiées & Actives' },
-          { id: 'rejected', label: 'Refusées' },
-          { id: 'suspended', label: 'Suspendues' },
-        ].map((f) => (
-          <button
-            key={f.id}
-            onClick={() => setStatusFilter(f.id)}
-            className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all ${
-              statusFilter === f.id
-                ? 'bg-red-600 text-white shadow-lg shadow-red-600/20'
-                : 'bg-slate-900 text-slate-400 hover:text-slate-200 border border-slate-800'
-            }`}
+      <div className="flex items-center justify-between gap-4">
+        <div className="w-52">
+          <Select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
           >
-            {f.label}
-          </button>
-        ))}
+            <option value="all">Tous les statuts ({apps.length})</option>
+            <option value="submitted">En attente d&apos;examen</option>
+            <option value="published">Publiées</option>
+            <option value="rejected">Refusées</option>
+            <option value="suspended">Suspendues</option>
+          </Select>
+        </div>
       </div>
 
-      {/* Apps Table */}
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-2xl">
-        {loading ? (
-          <div className="p-16 flex justify-center items-center">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-500"></div>
-          </div>
-        ) : apps.length === 0 ? (
-          <div className="p-16 text-center space-y-2">
-            <p className="text-slate-300 font-bold text-sm">Aucune application dans cette catégorie</p>
-            <p className="text-slate-500 text-xs">Les nouvelles soumissions de développeurs apparaîtront ici.</p>
-          </div>
-        ) : (
-          <div className="divide-y divide-slate-800">
-            {apps.map((app) => (
-              <div key={app.id} className="p-6 flex flex-col lg:flex-row lg:items-center justify-between gap-6 hover:bg-slate-800/30 transition-colors">
-                <div className="space-y-3 max-w-2xl">
-                  <div className="flex flex-wrap items-center gap-3">
-                    <span className="text-base font-black text-slate-100">{app.name}</span>
-                    <code className="text-xs px-2 py-0.5 rounded bg-slate-950 text-slate-400 border border-slate-800 font-mono">
-                      {app.slug}
-                    </code>
-                    {getStatusBadge(app.status)}
-                    <span className="text-xs text-slate-400">
-                      {app.activeInstallsCount} installation(s) active(s)
-                    </span>
-                  </div>
-
-                  <p className="text-xs text-slate-300 leading-relaxed">{app.description}</p>
-
-                  <div className="flex flex-wrap items-center gap-4 text-xs text-slate-400">
-                    <div>
-                      <span className="text-slate-500">Développeur:</span>{' '}
-                      <span className="font-bold text-slate-200">{app.developer.name}</span> ({app.developer.email})
-                    </div>
-                    {app.webhookCallbackUrl && (
-                      <div>
-                        <span className="text-slate-500">Webhook:</span>{' '}
-                        <code className="text-[11px] text-purple-400 font-mono">{app.webhookCallbackUrl}</code>
-                      </div>
-                    )}
-                  </div>
-
-                  {app.rejectionReason && (
-                    <div className="p-3 rounded-xl bg-red-500/10 border border-red-500/20 text-red-300 text-xs">
-                      <span className="font-bold">Motif du refus :</span> {app.rejectionReason}
-                    </div>
-                  )}
-
-                  <div className="flex flex-wrap gap-1.5 pt-1">
-                    {app.requestedScopes.map((s) => (
-                      <span
-                        key={s}
-                        className={`text-[10px] font-mono px-2 py-0.5 rounded border ${
-                          s === 'read_clients'
-                            ? 'bg-amber-500/10 text-amber-400 border-amber-500/20 font-bold'
-                            : 'bg-slate-950 text-slate-400 border-slate-800'
-                        }`}
-                      >
-                        {s}
-                      </span>
+      <Table>
+        <TableHeader>
+          <tr>
+            <TableHead>Application</TableHead>
+            <TableHead>Développeur</TableHead>
+            <TableHead>Scopes Demandés</TableHead>
+            <TableHead className="text-right">Installations</TableHead>
+            <TableHead>Statut</TableHead>
+            <TableHead className="text-right">Action</TableHead>
+          </tr>
+        </TableHeader>
+        <TableBody>
+          {loading ? (
+            <TableLoadingState colSpan={6} message="Chargement des applications..." />
+          ) : apps.length === 0 ? (
+            <TableEmptyState
+              colSpan={6}
+              title="Aucune application dans ce filtre"
+              description="Toutes les soumissions de connecteurs partenaires apparaîtront ici pour validation."
+            />
+          ) : (
+            apps.map((app) => (
+              <TableRow key={app.id}>
+                <TableCell>
+                  <span className="font-bold text-text-primary block">{app.name}</span>
+                  <span className="text-xs font-mono text-text-muted block">/{app.slug}</span>
+                </TableCell>
+                <TableCell>
+                  <span className="text-text-primary block">{app.developer?.name}</span>
+                  <span className="text-xs text-text-muted block">{app.developer?.email}</span>
+                </TableCell>
+                <TableCell>
+                  <div className="flex flex-wrap gap-1 max-w-xs">
+                    {app.requestedScopes?.map((sc) => (
+                      <Badge key={sc} variant="neutral" size="sm">
+                        {sc}
+                      </Badge>
                     ))}
                   </div>
-                </div>
-
-                {/* Review Action Controls */}
-                <div className="flex flex-wrap lg:flex-col gap-2 shrink-0">
-                  {app.status === 'submitted' && (
-                    <>
-                      <button
-                        onClick={() => handleReview(app.id, 'approve')}
-                        disabled={actionLoading}
-                        className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold rounded-xl transition-all shadow-lg shadow-emerald-600/20"
+                </TableCell>
+                <TableCell className="text-right font-mono font-bold text-text-primary">
+                  {app.activeInstallsCount}
+                </TableCell>
+                <TableCell>{getStatusBadge(app.status)}</TableCell>
+                <TableCell className="text-right">
+                  <div className="flex items-center justify-end gap-2">
+                    {app.status === 'submitted' && (
+                      <>
+                        <Button
+                          variant="primary"
+                          size="sm"
+                          isLoading={actionLoading}
+                          onClick={() => handleReview(app.id, 'approve')}
+                        >
+                          Approuver
+                        </Button>
+                        <Button
+                          variant="danger"
+                          size="sm"
+                          onClick={() => {
+                            setSelectedApp(app);
+                            setRejectionReason('');
+                            setRejectionModalOpen(true);
+                          }}
+                        >
+                          Refuser
+                        </Button>
+                      </>
+                    )}
+                    {app.status === 'published' && (
+                      <Button
+                        variant="danger"
+                        size="sm"
+                        isLoading={actionLoading}
+                        onClick={() => handleReview(app.id, 'suspend')}
                       >
-                        Approuver & Publier
-                      </button>
-                      <button
-                        onClick={() => {
-                          setSelectedApp(app);
-                          setRejectionReason('');
-                          setRejectionModalOpen(true);
-                        }}
-                        disabled={actionLoading}
-                        className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-red-400 border border-red-500/20 text-xs font-bold rounded-xl transition-colors"
-                      >
-                        Refuser...
-                      </button>
-                    </>
-                  )}
+                        Suspendre
+                      </Button>
+                    )}
+                  </div>
+                </TableCell>
+              </TableRow>
+            ))
+          )}
+        </TableBody>
+      </Table>
 
-                  {app.status === 'published' && (
-                    <button
-                      onClick={() => {
-                        if (confirm(`SUSPENDRE "${app.name}" ? Toutes les clés API générées pour les garages installés seront immédiatement invalidées.`)) {
-                          handleReview(app.id, 'suspend');
-                        }
-                      }}
-                      disabled={actionLoading}
-                      className="px-4 py-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 border border-red-500/30 text-xs font-bold rounded-xl transition-colors"
-                    >
-                      Suspendre l'Application
-                    </button>
-                  )}
+      {/* Rejection Modal */}
+      <Modal
+        isOpen={rejectionModalOpen}
+        onClose={() => setRejectionModalOpen(false)}
+        title="Refus de l'Application"
+        description={`Indiquez la raison du refus technique pour ${selectedApp?.name}`}
+      >
+        <div className="space-y-4">
+          <Textarea
+            label="Motif du Refus Technique"
+            required
+            rows={3}
+            placeholder="Scopes trop larges, documentation manquante, non conformité RGPD/protection des données..."
+            value={rejectionReason}
+            onChange={(e) => setRejectionReason(e.target.value)}
+          />
 
-                  {app.status === 'suspended' && (
-                    <button
-                      onClick={() => handleReview(app.id, 'approve')}
-                      disabled={actionLoading}
-                      className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-emerald-400 border border-emerald-500/20 text-xs font-bold rounded-xl transition-colors"
-                    >
-                      Réactiver & Publier
-                    </button>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Rejection Reason Modal */}
-      {rejectionModalOpen && selectedApp && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fadeIn">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-md w-full p-6 space-y-5 shadow-2xl">
-            <div>
-              <h3 className="text-base font-bold text-slate-100">
-                Refuser la soumission de {selectedApp.name}
-              </h3>
-              <p className="text-xs text-slate-400 mt-1">
-                Veuillez formuler un motif constructif qui sera communiqué au développeur.
-              </p>
-            </div>
-
-            <textarea
-              required
-              rows={4}
-              placeholder="Ex: Permissions excessives demandées pour les fonctionnalités décrites, URL de webhook invalide..."
-              value={rejectionReason}
-              onChange={(e) => setRejectionReason(e.target.value)}
-              className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-slate-100 focus:outline-none focus:border-red-500 transition-colors"
-            />
-
-            <div className="flex justify-end gap-3 pt-2">
-              <button
-                onClick={() => setRejectionModalOpen(false)}
-                className="px-4 py-2 text-xs font-semibold text-slate-400 hover:text-slate-200"
-              >
-                Annuler
-              </button>
-              <button
-                onClick={() => handleReview(selectedApp.id, 'reject', rejectionReason)}
-                disabled={actionLoading || !rejectionReason.trim()}
-                className="px-5 py-2.5 bg-red-600 hover:bg-red-500 disabled:opacity-50 text-white text-xs font-bold rounded-xl transition-all"
-              >
-                Confirmer le refus
-              </button>
-            </div>
+          <div className="flex gap-2.5 pt-3">
+            <Button
+              variant="danger"
+              className="flex-1"
+              isLoading={actionLoading}
+              onClick={() => selectedApp && handleReview(selectedApp.id, 'reject', rejectionReason)}
+            >
+              Confirmer le Refus
+            </Button>
+            <Button variant="secondary" onClick={() => setRejectionModalOpen(false)} className="flex-1">
+              Annuler
+            </Button>
           </div>
         </div>
-      )}
+      </Modal>
     </div>
   );
 }

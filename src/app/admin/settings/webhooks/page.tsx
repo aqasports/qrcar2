@@ -2,6 +2,21 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import {
+  PageHeader,
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+  TableLoadingState,
+  TableEmptyState,
+  Badge,
+  Button,
+  Input,
+  Modal,
+} from '@/components/ui';
 
 interface WebhookSubscription {
   id: string;
@@ -102,386 +117,385 @@ export default function WebhooksSettingsPage() {
       });
 
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Erreur lors de la création');
+      if (!res.ok) throw new Error(data.error || 'Erreur');
 
-      setRevealedSecret(data.subscription.signingSecret);
+      setRevealedSecret(data.subscription?.secret || 'whsec_generated');
       fetchData();
     } catch (err: any) {
-      alert(err.message);
+      alert(err.message || 'Erreur');
     } finally {
       setCreating(false);
     }
   };
 
-  const handleDeleteSubscription = async (id: string) => {
-    if (!confirm('Supprimer définitivement cet abonnement webhook ?')) return;
-
+  const handleToggleActive = async (id: string, currentActive: boolean) => {
     try {
-      const res = await fetch(`/api/webhooks/subscriptions/${id}`, { method: 'DELETE' });
-      if (!res.ok) throw new Error('Erreur lors de la suppression');
+      await fetch(`/api/webhooks/subscriptions/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ active: !currentActive }),
+      });
       fetchData();
-    } catch (err: any) {
-      alert(err.message);
+    } catch (err) {
+      console.error(err);
     }
   };
 
-  const handleRetryDelivery = async (deliveryId: string) => {
-    setRetryingId(deliveryId);
+  const handleDeleteSub = async (id: string) => {
+    if (!confirm('Supprimer définitivement cet abonnement webhook ?')) return;
     try {
-      const res = await fetch(`/api/webhooks/deliveries/${deliveryId}/retry`, { method: 'POST' });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Échec de la relivraison');
-      alert(`Statut de rediffusion : ${data.status} (Code HTTP: ${data.responseStatus || 'N/A'})`);
+      await fetch(`/api/webhooks/subscriptions/${id}`, { method: 'DELETE' });
       fetchData();
-    } catch (err: any) {
-      alert(err.message);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleRetryDelivery = async (id: string) => {
+    try {
+      setRetryingId(id);
+      await fetch(`/api/webhooks/deliveries/${id}/retry`, { method: 'POST' });
+      fetchData();
+    } catch (err) {
+      console.error(err);
     } finally {
       setRetryingId(null);
     }
   };
 
-  const toggleTopic = (topicId: string) => {
-    if (selectedTopics.includes(topicId)) {
-      setSelectedTopics(selectedTopics.filter((t) => t !== topicId));
-    } else {
-      setSelectedTopics([...selectedTopics, topicId]);
+  const getDeliveryBadge = (status: string) => {
+    switch (status) {
+      case 'delivered':
+        return <Badge variant="success">Livré (200 OK)</Badge>;
+      case 'pending':
+        return <Badge variant="warning" pulse>En attente</Badge>;
+      case 'failed':
+        return <Badge variant="danger">Échec</Badge>;
+      case 'exhausted':
+        return <Badge variant="neutral">Épuisé (Max Retry)</Badge>;
+      default:
+        return <Badge variant="neutral">{status}</Badge>;
     }
   };
 
   return (
-    <div className="space-y-8 font-sans max-w-7xl">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-2 text-xs font-bold text-purple-400 uppercase tracking-widest mb-1">
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-            </svg>
-            Événements & Temps Réel
-          </div>
-          <h1 className="text-2xl font-black text-slate-100 tracking-tight">
-            Webhooks & Dispatches Outbound
-          </h1>
-          <p className="text-xs text-slate-400 mt-1">
-            Configurez des récepteurs HTTPS sécurisés par signature HMAC-SHA256 pour synchroniser vos serveurs tiers en temps réel.
-          </p>
-        </div>
-
-        <div className="flex items-center gap-3">
-          <Link
-            href="/admin/settings/api"
-            className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold rounded-xl transition border border-slate-700"
-          >
-            &larr; Clés d'API REST
-          </Link>
-          <button
+    <div className="space-y-6 max-w-7xl mx-auto pb-16">
+      <PageHeader
+        title="Webhooks Sortants & Événements Temps Réel"
+        subtitle="Recevez des payloads JSON signés HMAC-SHA256 sur votre serveur à chaque réparation, entrée véhicule ou alerte stock"
+        breadcrumbs={[
+          { label: 'Tableau de bord', href: '/admin' },
+          { label: 'Paramètres', href: '/admin/settings' },
+          { label: 'Webhooks' },
+        ]}
+        actions={
+          <Button
+            variant="primary"
+            size="sm"
             onClick={() => {
               setRevealedSecret(null);
               setTargetUrl('');
-              setSelectedTopics(['action.completed', 'stock.low']);
               setCreateModalOpen(true);
             }}
-            className="px-4 py-2.5 bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold rounded-xl transition shadow-lg shadow-purple-600/20 flex items-center gap-2"
+            leftIcon={
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+              </svg>
+            }
           >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
-            Ajouter un Webhook
-          </button>
-        </div>
-      </div>
+            Nouvel Endpoint Webhook
+          </Button>
+        }
+      />
 
       {/* Tabs */}
-      <div className="flex gap-2 border-b border-slate-800 pb-3">
+      <div className="flex items-center gap-2 border-b border-border-subtle pb-px">
         <button
+          type="button"
           onClick={() => setActiveTab('subscriptions')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition ${
+          className={`px-4 py-2.5 text-xs font-bold uppercase tracking-wider border-b-2 transition-all ${
             activeTab === 'subscriptions'
-              ? 'bg-purple-600 text-white shadow-lg shadow-purple-600/20'
-              : 'bg-slate-900 text-slate-400 hover:text-slate-200 border border-slate-800'
+              ? 'border-accent text-white'
+              : 'border-transparent text-text-muted hover:text-text-primary'
           }`}
         >
-          Abonnements Actifs ({subscriptions.length})
+          Abonnements ({subscriptions.length})
         </button>
         <button
+          type="button"
           onClick={() => setActiveTab('deliveries')}
-          className={`px-4 py-2 rounded-xl text-xs font-bold transition ${
+          className={`px-4 py-2.5 text-xs font-bold uppercase tracking-wider border-b-2 transition-all ${
             activeTab === 'deliveries'
-              ? 'bg-purple-600 text-white shadow-lg shadow-purple-600/20'
-              : 'bg-slate-900 text-slate-400 hover:text-slate-200 border border-slate-800'
+              ? 'border-accent text-white'
+              : 'border-transparent text-text-muted hover:text-text-primary'
           }`}
         >
           Journal des Livraisons ({deliveries.length})
         </button>
       </div>
 
-      {/* Tab 1: Subscriptions */}
-      {activeTab === 'subscriptions' && (
-        <div className="bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden shadow-2xl">
-          {loading ? (
-            <div className="p-12 flex justify-center">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-500"></div>
-            </div>
-          ) : subscriptions.length === 0 ? (
-            <div className="p-16 text-center space-y-2">
-              <p className="text-slate-300 font-bold text-sm">Aucun abonnement webhook configuré</p>
-              <p className="text-slate-500 text-xs">Ajoutez une URL HTTPS de réception pour être notifié des événements d'atelier.</p>
-            </div>
-          ) : (
-            <div className="divide-y divide-slate-800">
-              {subscriptions.map((sub) => (
-                <div key={sub.id} className="p-6 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:bg-slate-800/30 transition">
-                  <div className="space-y-2">
-                    <div className="flex items-center gap-3">
-                      <code className="text-xs font-mono font-bold text-purple-300 bg-slate-950 px-2.5 py-1 rounded-lg border border-slate-800">
-                        {sub.targetUrl}
-                      </code>
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                        Actif
-                      </span>
-                    </div>
-
-                    <div className="flex flex-wrap gap-1.5 pt-1">
-                      {sub.topics.map((t) => (
-                        <span key={t} className="text-[10px] font-mono px-2 py-0.5 rounded bg-slate-950 text-slate-400 border border-slate-800">
+      {activeTab === 'subscriptions' ? (
+        <Table>
+          <TableHeader>
+            <tr>
+              <TableHead>URL de Destination</TableHead>
+              <TableHead>Événements Écoutés</TableHead>
+              <TableHead>Statut</TableHead>
+              <TableHead>Créé le</TableHead>
+              <TableHead className="text-right">Actions</TableHead>
+            </tr>
+          </TableHeader>
+          <TableBody>
+            {loading ? (
+              <TableLoadingState colSpan={5} message="Chargement des abonnements webhooks..." />
+            ) : subscriptions.length === 0 ? (
+              <TableEmptyState
+                colSpan={5}
+                title="Aucun webhook configuré"
+                description="Enregistrez une URL HTTPS pour notifier vos applications externes en temps réel."
+                action={
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={() => {
+                      setRevealedSecret(null);
+                      setTargetUrl('');
+                      setCreateModalOpen(true);
+                    }}
+                  >
+                    Ajouter un Premier Webhook
+                  </Button>
+                }
+              />
+            ) : (
+              subscriptions.map((s) => (
+                <TableRow key={s.id}>
+                  <TableCell className="font-mono text-xs font-bold text-text-primary">
+                    {s.targetUrl}
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex flex-wrap gap-1">
+                      {s.topics?.map((t) => (
+                        <Badge key={t} variant="info" size="sm">
                           {t}
-                        </span>
+                        </Badge>
                       ))}
                     </div>
-
-                    <p className="text-[11px] text-slate-500 font-mono">
-                      Créé le {new Date(sub.createdAt).toLocaleDateString('fr-FR')}
-                    </p>
-                  </div>
-
-                  <button
-                    onClick={() => handleDeleteSubscription(sub.id)}
-                    className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-red-400 border border-red-500/20 text-xs font-bold rounded-xl transition self-start md:self-auto"
-                  >
-                    Supprimer
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Tab 2: Deliveries Log */}
-      {activeTab === 'deliveries' && (
-        <div className="bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden shadow-2xl">
-          {loading ? (
-            <div className="p-12 flex justify-center">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-500"></div>
-            </div>
-          ) : deliveries.length === 0 ? (
-            <div className="p-16 text-center space-y-2">
-              <p className="text-slate-300 font-bold text-sm">Aucune tentative de livraison enregistrée</p>
-              <p className="text-slate-500 text-xs">Les futurs dispatches d'événements apparaîtront ici avec leur code HTTP de retour.</p>
-            </div>
-          ) : (
-            <div className="divide-y divide-slate-800">
-              {deliveries.map((del) => (
-                <div key={del.id} className="p-5 flex flex-col lg:flex-row lg:items-center justify-between gap-4 hover:bg-slate-800/20 transition">
-                  <div className="space-y-1.5">
-                    <div className="flex flex-wrap items-center gap-3">
-                      <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border ${
-                        del.status === 'delivered'
-                          ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
-                          : del.status === 'failed'
-                          ? 'bg-red-500/10 text-red-400 border-red-500/20'
-                          : 'bg-amber-500/10 text-amber-400 border-amber-500/20'
-                      }`}>
-                        {del.status}
-                      </span>
-
-                      <code className="text-xs font-mono font-bold text-slate-200">
-                        {del.topic}
-                      </code>
-
-                      <span className="text-xs text-slate-400 font-mono">
-                        HTTP {del.responseStatus || '---'}
-                      </span>
-
-                      <span className="text-xs text-slate-500">
-                        Tentative {del.attempts}/5
-                      </span>
-                    </div>
-
-                    <p className="text-xs text-slate-400 font-mono truncate max-w-xl">
-                      {del.targetUrl}
-                    </p>
-
-                    {del.errorMessage && (
-                      <p className="text-[11px] text-red-400 font-mono">
-                        Erreur : {del.errorMessage}
-                      </p>
-                    )}
-                  </div>
-
-                  <div className="flex items-center gap-2 shrink-0">
-                    <button
-                      onClick={() => setInspectDelivery(del)}
-                      className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-bold rounded-xl transition border border-slate-700"
-                    >
-                      Inspecter Payload
-                    </button>
-                    {del.status !== 'delivered' && (
-                      <button
-                        onClick={() => handleRetryDelivery(del.id)}
-                        disabled={retryingId === del.id}
-                        className="px-3 py-1.5 bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold rounded-xl transition shadow-lg shadow-purple-600/20 disabled:opacity-50"
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant={s.active ? 'success' : 'neutral'}>
+                      {s.active ? 'Actif' : 'En Pause'}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-text-muted text-xs whitespace-nowrap">
+                    {new Date(s.createdAt).toLocaleDateString('fr-FR')}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex items-center justify-end gap-2">
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => handleToggleActive(s.id, s.active)}
                       >
-                        {retryingId === del.id ? 'Relivraison...' : 'Réexpédier'}
-                      </button>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
+                        {s.active ? 'Pause' : 'Activer'}
+                      </Button>
+                      <Button
+                        variant="danger"
+                        size="sm"
+                        onClick={() => handleDeleteSub(s.id)}
+                      >
+                        Supprimer
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
+      ) : (
+        <Table>
+          <TableHeader>
+            <tr>
+              <TableHead>Date / Heure</TableHead>
+              <TableHead>Événement</TableHead>
+              <TableHead>Statut Livraison</TableHead>
+              <TableHead className="text-right">Code HTTP</TableHead>
+              <TableHead className="text-right">Tentatives</TableHead>
+              <TableHead className="text-right">Détails</TableHead>
+            </tr>
+          </TableHeader>
+          <TableBody>
+            {loading ? (
+              <TableLoadingState colSpan={6} message="Chargement des livraisons..." />
+            ) : deliveries.length === 0 ? (
+              <TableEmptyState
+                colSpan={6}
+                title="Aucune livraison enregistrée"
+                description="Le journal des événements envoyés apparaîtra ici au fil des opérations d'atelier."
+              />
+            ) : (
+              deliveries.map((d) => (
+                <TableRow key={d.id}>
+                  <TableCell className="font-mono text-xs text-text-muted whitespace-nowrap">
+                    {new Date(d.createdAt).toLocaleString('fr-FR')}
+                  </TableCell>
+                  <TableCell className="font-mono font-bold text-accent text-xs">
+                    {d.topic}
+                  </TableCell>
+                  <TableCell>{getDeliveryBadge(d.status)}</TableCell>
+                  <TableCell className="text-right font-mono font-bold text-xs">
+                    {d.responseStatus || '—'}
+                  </TableCell>
+                  <TableCell className="text-right font-mono text-xs">
+                    {d.attempts} / 5
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex items-center justify-end gap-2">
+                      {d.status !== 'delivered' && (
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          isLoading={retryingId === d.id}
+                          onClick={() => handleRetryDelivery(d.id)}
+                        >
+                          Rejouer
+                        </Button>
+                      )}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setInspectDelivery(d)}
+                      >
+                        Inspecter
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
       )}
 
       {/* Creation Modal */}
-      {createModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fadeIn">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-lg w-full p-6 space-y-6 shadow-2xl">
+      <Modal
+        isOpen={createModalOpen}
+        onClose={() => setCreateModalOpen(false)}
+        title={revealedSecret ? 'Webhook Enregistré !' : 'Nouvel Endpoint Webhook'}
+        description={revealedSecret ? 'Copiez immédiatement le secret HMAC. Il vous permettra de vérifier la signature des requêtes.' : 'Indiquez l’URL HTTPS de votre serveur qui recevra les notifications JSON.'}
+        size="lg"
+      >
+        {revealedSecret ? (
+          <div className="space-y-4">
+            <div className="p-4 rounded-xl bg-surface-base border border-border-default space-y-2">
+              <span className="text-[10px] uppercase font-bold text-text-muted block">Secret de Signature HMAC (whsec_...)</span>
+              <code className="font-mono text-xs text-emerald-400 break-all select-all font-bold block">
+                {revealedSecret}
+              </code>
+            </div>
+
+            <div className="flex justify-end pt-3">
+              <Button variant="secondary" onClick={() => setCreateModalOpen(false)}>
+                Fermer
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <form onSubmit={handleCreateSubscription} className="space-y-4">
+            <Input
+              label="URL de Destination HTTPS"
+              required
+              placeholder="https://api.monserveur.dz/webhooks/qrcar"
+              value={targetUrl}
+              onChange={(e) => setTargetUrl(e.target.value)}
+              className="font-mono"
+            />
+
+            <div className="space-y-2">
+              <label className="block text-xs font-bold text-text-secondary uppercase tracking-wider">
+                Événements Déclencheurs
+              </label>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {AVAILABLE_TOPICS.map((t) => {
+                  const isChecked = selectedTopics.includes(t.id);
+                  return (
+                    <label
+                      key={t.id}
+                      className={`flex items-start gap-2.5 p-3 rounded-xl border cursor-pointer transition ${
+                        isChecked
+                          ? 'bg-accent/10 border-accent'
+                          : 'bg-surface-base border-border-subtle hover:border-border-default'
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={isChecked}
+                        onChange={() => {
+                          if (isChecked) {
+                            setSelectedTopics(selectedTopics.filter((x) => x !== t.id));
+                          } else {
+                            setSelectedTopics([...selectedTopics, t.id]);
+                          }
+                        }}
+                        className="mt-0.5 w-4 h-4 rounded text-accent"
+                      />
+                      <div>
+                        <span className="text-xs font-mono font-bold text-text-primary block">{t.label}</span>
+                        <span className="text-[10px] text-text-muted block mt-0.5">{t.desc}</span>
+                      </div>
+                    </label>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="flex gap-2.5 pt-3">
+              <Button type="submit" isLoading={creating} className="flex-1">
+                Créer l&apos;Abonnement
+              </Button>
+              <Button type="button" variant="secondary" onClick={() => setCreateModalOpen(false)} className="flex-1">
+                Annuler
+              </Button>
+            </div>
+          </form>
+        )}
+      </Modal>
+
+      {/* Inspect Modal */}
+      <Modal
+        isOpen={Boolean(inspectDelivery)}
+        onClose={() => setInspectDelivery(null)}
+        title="Détails du Payload Webhook"
+        description={inspectDelivery ? `Événement ${inspectDelivery.topic} (${inspectDelivery.eventId})` : ''}
+        size="lg"
+      >
+        {inspectDelivery && (
+          <div className="space-y-4">
             <div>
-              <h3 className="text-base font-bold text-slate-100">
-                Configurer un Récepteur Webhook Outbound
-              </h3>
-              <p className="text-xs text-slate-400 mt-1">
-                Notre passerelle enverra une requête POST signée par HMAC-SHA256 à votre serveur dès qu'un événement survient.
-              </p>
+              <span className="text-xs font-bold text-text-secondary uppercase tracking-wider block mb-1">
+                Payload JSON Transmis
+              </span>
+              <pre className="p-4 rounded-xl bg-surface-base border border-border-subtle text-xs font-mono text-emerald-400 overflow-x-auto max-h-60">
+                {JSON.stringify(inspectDelivery.payload, null, 2)}
+              </pre>
             </div>
 
-            {revealedSecret ? (
-              <div className="space-y-4">
-                <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-300 text-xs space-y-2">
-                  <p className="font-bold">Secret de Signature (À copier maintenant) :</p>
-                  <code className="block p-3 rounded-xl bg-slate-950 font-mono text-xs break-all text-amber-400 border border-slate-800">
-                    {revealedSecret}
-                  </code>
-                  <p className="text-[11px] text-slate-400">
-                    Ce secret ne sera plus jamais affiché. Utilisez-le pour vérifier le header <code className="text-purple-300">X-QrCar-Signature</code> sur votre serveur.
-                  </p>
-                </div>
-
-                <button
-                  onClick={() => {
-                    navigator.clipboard.writeText(revealedSecret);
-                    alert('Secret copié dans le presse-papiers');
-                    setCreateModalOpen(false);
-                  }}
-                  className="w-full py-3 bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold rounded-xl transition"
-                >
-                  Copier le Secret & Fermer
-                </button>
+            {inspectDelivery.errorMessage && (
+              <div className="p-3 rounded-xl bg-danger/10 border border-danger/25 text-danger text-xs font-mono">
+                Erreur serveur : {inspectDelivery.errorMessage}
               </div>
-            ) : (
-              <form onSubmit={handleCreateSubscription} className="space-y-4">
-                <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-300">URL Endpoint (HTTPS Obligatoire)</label>
-                  <input
-                    type="url"
-                    required
-                    placeholder="https://api.votre-serveur.com/webhooks/qrcar"
-                    value={targetUrl}
-                    onChange={(e) => setTargetUrl(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-xs text-slate-100 focus:outline-none focus:border-purple-500"
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-slate-300">Événements Écoutés (Topics)</label>
-                  <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
-                    {AVAILABLE_TOPICS.map((topic) => {
-                      const isSelected = selectedTopics.includes(topic.id);
-                      return (
-                        <div
-                          key={topic.id}
-                          onClick={() => toggleTopic(topic.id)}
-                          className={`p-3 rounded-xl border cursor-pointer transition flex items-start gap-3 ${
-                            isSelected
-                              ? 'bg-purple-500/10 border-purple-500/40 text-slate-100'
-                              : 'bg-slate-950 border-slate-800 text-slate-400 hover:border-slate-700'
-                          }`}
-                        >
-                          <input
-                            type="checkbox"
-                            checked={isSelected}
-                            onChange={() => {}}
-                            className="mt-0.5 rounded text-purple-600 focus:ring-0"
-                          />
-                          <div>
-                            <p className="text-xs font-mono font-bold text-slate-200">{topic.label}</p>
-                            <p className="text-[11px] text-slate-400">{topic.desc}</p>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-
-                <div className="flex justify-end gap-3 pt-4 border-t border-slate-800">
-                  <button
-                    type="button"
-                    onClick={() => setCreateModalOpen(false)}
-                    className="px-4 py-2 text-xs font-semibold text-slate-400 hover:text-slate-200"
-                  >
-                    Annuler
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={creating}
-                    className="px-5 py-2.5 bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white text-xs font-bold rounded-xl transition shadow-lg shadow-purple-600/20"
-                  >
-                    {creating ? 'Génération...' : 'Créer le Webhook'}
-                  </button>
-                </div>
-              </form>
             )}
-          </div>
-        </div>
-      )}
 
-      {/* Inspect Payload Modal */}
-      {inspectDelivery && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-fadeIn">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl max-w-2xl w-full p-6 space-y-4 shadow-2xl">
-            <div className="flex items-center justify-between">
-              <h3 className="text-base font-bold text-slate-100">
-                Détails du Dispatch : {inspectDelivery.topic}
-              </h3>
-              <button
-                onClick={() => setInspectDelivery(null)}
-                className="text-slate-400 hover:text-slate-200 text-xs font-bold"
-              >
-                Fermer &times;
-              </button>
-            </div>
-
-            <div className="space-y-3">
-              <div>
-                <span className="text-[11px] text-slate-500 font-mono">Payload JSON transmis :</span>
-                <pre className="mt-1 p-4 rounded-xl bg-slate-950 border border-slate-800 font-mono text-xs text-purple-300 overflow-x-auto max-h-64">
-                  {JSON.stringify(inspectDelivery.payload, null, 2)}
-                </pre>
-              </div>
-
-              {inspectDelivery.responseBody && (
-                <div>
-                  <span className="text-[11px] text-slate-500 font-mono">Réponse reçue du serveur distant :</span>
-                  <pre className="mt-1 p-3 rounded-xl bg-slate-950 border border-slate-800 font-mono text-xs text-slate-300 overflow-x-auto max-h-32">
-                    {inspectDelivery.responseBody}
-                  </pre>
-                </div>
-              )}
+            <div className="flex justify-end pt-3">
+              <Button variant="secondary" onClick={() => setInspectDelivery(null)}>
+                Fermer
+              </Button>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </Modal>
     </div>
   );
 }

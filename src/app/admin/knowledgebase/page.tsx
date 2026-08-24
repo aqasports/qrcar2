@@ -2,6 +2,19 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import {
+  PageHeader,
+  Card,
+  CardHeader,
+  CardTitle,
+  CardContent,
+  CardFooter,
+  Badge,
+  Button,
+  Input,
+  Spinner,
+  EmptyState,
+} from '@/components/ui';
 
 const POPULAR_DTC = [
   'P0300', 'P0420', 'P0299', 'P0101', 'P0401', 'P0171', 'DF053', 'DF025', 'U0100', 'P2002'
@@ -71,196 +84,164 @@ export default function KnowledgebaseBrowsePage() {
   };
 
   return (
-    <div className="space-y-8 font-sans max-w-7xl">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-black text-slate-100 tracking-tight">Base de Connaissances & Pannes DTC</h1>
-          <p className="text-sm text-slate-400 mt-1">
-            Recherchez les codes défauts OBD (P0300, DF053...), causes racines et procédures de réparation validées par les maîtres-garagistes.
-          </p>
-        </div>
-
-        <div className="flex items-center gap-3">
-          <Link
-            href="/admin/knowledgebase/new"
-            className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold shadow-lg shadow-blue-600/20 transition flex items-center gap-2"
-          >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
-            <span>Partager une Solution Technique</span>
+    <div className="space-y-8 max-w-7xl mx-auto pb-16">
+      <PageHeader
+        title="Base de Connaissances Mécaniques & Codes DTC"
+        subtitle="Dépannages éprouvés, causes racines et procédures d'atelier pour les codes défauts OBD-II et calculateurs"
+        breadcrumbs={[
+          { label: 'Tableau de bord', href: '/admin' },
+          { label: 'Base de Connaissances' },
+        ]}
+        actions={
+          <Link href="/admin/knowledgebase/new">
+            <Button
+              variant="primary"
+              size="sm"
+              leftIcon={
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                </svg>
+              }
+            >
+              Partager une Fiche Technique
+            </Button>
           </Link>
-        </div>
-      </div>
+        }
+      />
 
-      {/* DTC Quick Pills Bar */}
-      <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-4">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xs font-bold text-slate-400 uppercase tracking-wider mr-2">
-            Codes DTC Fréquents :
-          </span>
-          {POPULAR_DTC.map((code) => {
-            const isSelected = dtcFilter === code;
-            return (
+      {/* Quick DTC Filter Strip */}
+      <Card>
+        <CardContent className="space-y-4 pt-6">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs font-bold text-text-secondary uppercase tracking-wider mr-2">
+              Codes Fréquents :
+            </span>
+            <button
+              type="button"
+              onClick={() => setDtcFilter('')}
+              className={`px-3 py-1 rounded-lg text-xs font-mono font-bold transition ${
+                dtcFilter === ''
+                  ? 'bg-accent text-white'
+                  : 'bg-surface-base border border-border-subtle text-text-muted hover:text-text-primary'
+              }`}
+            >
+              Tous
+            </button>
+            {POPULAR_DTC.map((dtc) => (
               <button
-                key={code}
-                onClick={() => setDtcFilter(isSelected ? '' : code)}
-                className={`px-3 py-1.5 rounded-xl text-xs font-mono font-bold transition border ${
-                  isSelected
-                    ? 'bg-blue-600 text-white border-blue-500 shadow-md shadow-blue-600/20'
-                    : 'bg-slate-950 border-slate-800 text-slate-300 hover:border-slate-700'
+                key={dtc}
+                type="button"
+                onClick={() => setDtcFilter(dtc === dtcFilter ? '' : dtc)}
+                className={`px-3 py-1 rounded-lg text-xs font-mono font-bold transition ${
+                  dtcFilter === dtc
+                    ? 'bg-accent text-white shadow-lg shadow-blue-500/20'
+                    : 'bg-surface-base border border-border-subtle text-text-muted hover:text-text-primary hover:border-border-default'
                 }`}
               >
-                {code}
+                {dtc}
               </button>
-            );
-          })}
-        </div>
+            ))}
+          </div>
 
-        {/* Search Bar */}
-        <form onSubmit={handleSearchSubmit} className="grid grid-cols-1 md:grid-cols-12 gap-3 pt-2">
-          <div className="md:col-span-8 relative">
-            <input
-              type="text"
-              placeholder="Recherche par Code Défaut (ex: P0420), Symptôme (ex: fumée noire, à-coups), Moteur (ex: 1.5 dCi, 2.0 TDI)..."
+          {/* Keyword Search */}
+          <form onSubmit={handleSearchSubmit} className="flex gap-2">
+            <Input
+              placeholder="Rechercher par symptôme (ex. calage à chaud, fumée noire, perte de puissance...)"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full bg-slate-950 border border-slate-800 rounded-2xl pl-10 pr-4 py-3 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-blue-500 font-medium"
             />
-            <svg className="w-4 h-4 text-slate-500 absolute left-3.5 top-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
-          </div>
-
-          <div className="md:col-span-2">
-            <select
-              value={make}
-              onChange={(e) => setMake(e.target.value)}
-              className="w-full bg-slate-950 border border-slate-800 rounded-2xl px-3.5 py-3 text-xs text-slate-200 focus:outline-none focus:border-blue-500"
-            >
-              <option value="all">Toutes les Marques</option>
-              <option value="Renault">Renault / Dacia</option>
-              <option value="Volkswagen">Volkswagen / Audi / Seat</option>
-              <option value="Peugeot">Peugeot / Citroën</option>
-              <option value="BMW">BMW</option>
-              <option value="Mercedes-Benz">Mercedes-Benz</option>
-              <option value="Toyota">Toyota</option>
-              <option value="Hyundai">Hyundai / Kia</option>
-            </select>
-          </div>
-
-          <div className="md:col-span-2">
-            <button
-              type="submit"
-              className="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-2xl text-xs font-bold shadow-lg shadow-blue-600/20 transition"
-            >
+            <Button type="submit" variant="secondary">
               Rechercher
-            </button>
-          </div>
-        </form>
-      </div>
+            </Button>
+          </form>
+        </CardContent>
+      </Card>
 
-      {/* Solutions Feed */}
+      {/* Solutions Grid */}
       {loading ? (
-        <div className="flex items-center justify-center min-h-[300px]">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+        <div className="flex flex-col items-center justify-center min-h-[40vh] gap-3">
+          <Spinner size="lg" />
+          <p className="text-xs text-text-muted">Interrogation de la base de diagnostics...</p>
         </div>
       ) : solutions.length === 0 ? (
-        <div className="bg-slate-900 border border-slate-800 rounded-3xl p-12 text-center text-slate-400">
-          <svg className="w-12 h-12 mx-auto text-slate-600 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-          </svg>
-          <p className="text-sm font-semibold">Aucune solution technique répertoriée pour ces critères.</p>
-          <p className="text-xs text-slate-500 mt-1">Vous avez résolu ce cas ? Soyez le premier à partager votre diagnostic !</p>
-        </div>
+        <EmptyState
+          title="Aucune fiche de dépannage trouvée"
+          description="Soyez le premier à documenter la procédure de réparation pour ce symptôme ou code DTC."
+          action={
+            <Link href="/admin/knowledgebase/new">
+              <Button variant="primary" size="sm">
+                Rédiger une Solution
+              </Button>
+            </Link>
+          }
+        />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {solutions.map((sol) => {
-            const dtcList = Array.isArray(sol.dtc_codes)
-              ? sol.dtc_codes
-              : typeof sol.dtc_codes === 'string'
-              ? JSON.parse(sol.dtc_codes || '[]')
-              : [];
-
-            return (
-              <Link
-                key={sol.id}
-                href={`/admin/knowledgebase/${sol.id}`}
-                className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl flex flex-col justify-between space-y-4 hover:border-slate-700 transition group"
-              >
-                <div>
-                  {/* DTC Badges & Vehicle */}
-                  <div className="flex flex-wrap items-center gap-1.5 mb-3">
-                    {dtcList.map((code: string) => (
-                      <span
-                        key={code}
-                        className="px-2.5 py-0.5 rounded-lg text-[10px] font-mono font-black bg-blue-500/10 text-blue-400 border border-blue-500/20"
-                      >
-                        {code}
-                      </span>
-                    ))}
-                    <span className="text-[11px] font-bold text-slate-300 ml-auto">
-                      {sol.make} {sol.model} {sol.engine_code && `(${sol.engine_code})`}
+          {solutions.map((item) => (
+            <Card key={item.id} className="flex flex-col justify-between hover:border-accent/40 transition-colors">
+              <div>
+                <CardHeader>
+                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                    {item.dtc_code ? (
+                      <Badge variant="danger" className="font-mono">
+                        {item.dtc_code}
+                      </Badge>
+                    ) : (
+                      <Badge variant="neutral">Diagnostic Général</Badge>
+                    )}
+                    <span className="text-[11px] font-mono text-text-muted">
+                      {item.make ? `${item.make} ${item.model || ''}` : 'Universel'}
                     </span>
                   </div>
 
-                  <h3 className="font-bold text-slate-100 text-base leading-snug group-hover:text-blue-400 transition line-clamp-2">
-                    {sol.title}
-                  </h3>
+                  <CardTitle className="mt-2 line-clamp-2">
+                    <Link href={`/admin/knowledgebase/${item.id}`} className="hover:text-accent transition-colors">
+                      {item.title}
+                    </Link>
+                  </CardTitle>
+                </CardHeader>
 
-                  {/* Symptoms snippet */}
-                  <p className="text-xs text-slate-400 mt-2.5 line-clamp-2">
-                    <strong className="text-slate-300">Symptômes :</strong> {sol.symptoms}
+                <CardContent className="space-y-3">
+                  <p className="text-xs text-text-secondary line-clamp-3 leading-relaxed">
+                    {item.cause || item.procedure}
                   </p>
 
-                  {/* Root Cause snippet */}
-                  <div className="mt-3 bg-slate-950/60 border border-slate-800/80 rounded-2xl p-3 text-xs text-slate-300">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-amber-400 block mb-0.5">
-                      Cause Racine Identifiée :
-                    </span>
-                    <p className="line-clamp-2">{sol.root_cause}</p>
-                  </div>
-                </div>
-
-                {/* Footer: Author & Upvotes */}
-                <div className="pt-3 border-t border-slate-800 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="w-7 h-7 rounded-lg bg-slate-800 flex items-center justify-center text-[10px] font-bold text-slate-300 uppercase">
-                      {sol.author_garage_name.slice(0, 2)}
-                    </div>
+                  <div className="p-3 rounded-xl bg-surface-base border border-border-subtle flex items-center justify-between text-xs">
                     <div>
-                      <div className="text-[11px] font-bold text-slate-200 flex items-center gap-1">
-                        <span>{sol.author_garage_name}</span>
-                        {sol.is_verified_expert && (
-                          <span className="text-[8px] bg-emerald-500/20 text-emerald-400 font-extrabold px-1 rounded border border-emerald-500/30">
-                            EXPERT
-                          </span>
-                        )}
-                      </div>
-                      <span className="text-[9px] text-slate-500 block">{sol.author_city || 'Algérie'}</span>
+                      <span className="text-[10px] uppercase font-bold text-text-muted block">Auteur</span>
+                      <span className="font-bold text-text-primary block">{item.author_name || 'Chef d’Atelier'}</span>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-[10px] uppercase font-bold text-text-muted block">Atelier</span>
+                      <span className="text-text-secondary block truncate max-w-[120px]">{item.org_name || 'Réseau Pro'}</span>
                     </div>
                   </div>
+                </CardContent>
+              </div>
 
-                  {/* Interactive Upvote Button */}
-                  <button
-                    onClick={(e) => handleVote(e, sol.id)}
-                    disabled={votingId === sol.id}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition border ${
-                      sol.has_user_voted
-                        ? 'bg-blue-600 text-white border-blue-500 shadow-md'
-                        : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-slate-200'
-                    }`}
-                  >
-                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M5 15l7-7 7 7" />
+              <CardFooter className="pt-4 border-t border-border-subtle flex items-center justify-between">
+                <Button
+                  variant={item.has_user_voted ? 'primary' : 'secondary'}
+                  size="sm"
+                  onClick={(e) => handleVote(e, item.id)}
+                  leftIcon={
+                    <svg className="w-3.5 h-3.5" fill={item.has_user_voted ? 'currentColor' : 'none'} viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
                     </svg>
-                    <span>{sol.upvotes_count}</span>
-                  </button>
-                </div>
-              </Link>
-            );
-          })}
+                  }
+                >
+                  {item.upvotes_count || 0} Votes Utiles
+                </Button>
+
+                <Link
+                  href={`/admin/knowledgebase/${item.id}`}
+                  className="text-xs font-bold text-accent hover:text-accent-hover"
+                >
+                  Lire la Fiche →
+                </Link>
+              </CardFooter>
+            </Card>
+          ))}
         </div>
       )}
     </div>

@@ -2,6 +2,19 @@
 
 import React, { useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
+import {
+  PageHeader,
+  Card,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardContent,
+  CardFooter,
+  Badge,
+  Button,
+  StatCard,
+  Spinner,
+} from '@/components/ui';
 
 export default function BillingPage() {
   const searchParams = useSearchParams();
@@ -68,8 +81,9 @@ export default function BillingPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-500"></div>
+      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-3">
+        <Spinner size="lg" />
+        <p className="text-xs text-text-muted font-medium">Chargement des abonnements et quotas...</p>
       </div>
     );
   }
@@ -79,331 +93,196 @@ export default function BillingPage() {
   const usage = details?.usage;
 
   return (
-    <div className="space-y-8 font-sans max-w-6xl">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-black text-slate-100 tracking-tight flex items-center gap-3">
-            <svg className="w-6 h-6 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
-            </svg>
-            Facturation & Forfaits Atelier
-          </h1>
-          <p className="text-sm text-slate-400 mt-1">
-            Gérez votre abonnement SaaS, vos quotas d'utilisation et vos paiements via BaridiMob / EDAHABIA / CIB (Chargily Pay).
-          </p>
-        </div>
-      </div>
-
-      {/* Dunning & Grace Period Alert Banner */}
-      {details?.isPastDue && (
-        <div className={`p-5 rounded-3xl border flex flex-col sm:flex-row sm:items-center justify-between gap-4 shadow-xl ${
-          details.isGracePeriod
-            ? 'bg-amber-500/10 border-amber-500/30 text-amber-300'
-            : 'bg-red-500/10 border-red-500/30 text-red-300'
-        }`}>
-          <div className="flex items-start gap-3">
-            <div className={`p-2 rounded-xl mt-0.5 ${details.isGracePeriod ? 'bg-amber-500/20 text-amber-400' : 'bg-red-500/20 text-red-400'}`}>
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+    <div className="space-y-8 max-w-7xl mx-auto pb-16">
+      <PageHeader
+        title="Facturation & Abonnements SaaS"
+        subtitle="Gestion des forfaits atelier, quotas de véhicules, cartes PVC et paiements Chargily (BaridiMob / EDAHABIA / CIB)"
+        breadcrumbs={[
+          { label: 'Tableau de bord', href: '/admin' },
+          { label: 'Facturation' },
+        ]}
+        actions={
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={handleExportData}
+            isLoading={exporting}
+            leftIcon={
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
               </svg>
-            </div>
-            <div>
-              <p className="font-bold text-sm text-slate-100">
-                {details.isGracePeriod ? 'Période de grâce active' : 'Abonnement en souffrance'}
-              </p>
-              <p className="text-xs text-slate-300 mt-0.5 max-w-xl">
-                {details.dunningNotice}
-              </p>
-            </div>
-          </div>
-
-          <button
-            onClick={() => handleCheckout(currentPlan?.slug || 'pro')}
-            disabled={Boolean(checkoutLoading)}
-            className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs rounded-xl shadow-lg shadow-emerald-600/20 shrink-0 transition"
+            }
           >
-            Régulariser par BaridiMob &rarr;
-          </button>
-        </div>
-      )}
+            Exporter Sauvegarde Atelier (JSON)
+          </Button>
+        }
+      />
 
-      {/* Success / Canceled Notifications */}
+      {/* Notifications */}
       {successParam && (
-        <div className="p-4 rounded-2xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-sm flex items-center gap-3 shadow-lg shadow-emerald-900/20">
-          <svg className="w-6 h-6 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-          <div>
-            <p className="font-bold">Paiement BaridiMob confirmé !</p>
-            <p className="text-xs text-emerald-400/80">Votre abonnement a été renouvelé avec succès. Merci pour votre confiance.</p>
-          </div>
+        <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 text-xs font-semibold">
+          Paiement validé avec succès ! Votre abonnement a été activé immédiatement.
         </div>
       )}
-
       {canceledParam && (
-        <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-400 text-sm flex items-center gap-3">
-          <svg className="w-6 h-6 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-          </svg>
-          <div>
-            <p className="font-bold">Paiement interrompu</p>
-            <p className="text-xs text-amber-400/80">La session de paiement Chargily n'a pas abouti. Vous pouvez relancer le règlement à tout moment.</p>
-          </div>
+        <div className="p-4 rounded-xl bg-warning/10 border border-warning/25 text-warning text-xs font-semibold">
+          La transaction Chargily a été annulée. Aucun montant n&apos;a été débité.
         </div>
       )}
 
-      {/* Subscription Status Card */}
-      <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-2xl relative overflow-hidden">
-        <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
+      {/* Dunning Notice */}
+      {details?.isPastDue && (
+        <div className={`p-4 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-4 ${
+          details.isGracePeriod
+            ? 'bg-warning/10 border-warning/30 text-warning'
+            : 'bg-danger/10 border-danger/30 text-danger'
+        }`}>
           <div>
-            <div className="flex items-center gap-3">
-              <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Forfait Actif</span>
-              <span className={`px-2.5 py-0.5 rounded-full text-xs font-extrabold uppercase tracking-wider border ${
-                details?.subscriptionStatus === 'active'
-                  ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
-                  : details?.subscriptionStatus === 'trialing'
-                  ? 'bg-blue-500/10 text-blue-400 border-blue-500/20'
-                  : 'bg-red-500/10 text-red-400 border-red-500/20'
-              }`}>
-                {details?.subscriptionStatus === 'trialing' ? 'Essai Gratuit' : details?.subscriptionStatus}
-              </span>
-            </div>
-
-            <div className="mt-2 flex items-baseline gap-3">
-              <h2 className="text-3xl font-black text-slate-100 tracking-tight">{currentPlan?.name}</h2>
-              <span className="text-xl font-bold text-amber-400">
-                {currentPlan?.priceMonthly?.toLocaleString('fr-FR')} DZD <span className="text-xs text-slate-400 font-normal">/ mois</span>
-              </span>
-            </div>
-
-            <p className="text-xs text-slate-400 mt-2">
-              {details?.isTrial && details.trialEndsAt && (
-                <span>Votre période d'essai expire le <strong>{new Date(details.trialEndsAt).toLocaleDateString('fr-FR')}</strong>.</span>
-              )}
-              {details?.subscriptionStatus === 'active' && details.currentPeriodEndsAt && (
-                <span>Prochain renouvellement prévu le <strong>{new Date(details.currentPeriodEndsAt).toLocaleDateString('fr-FR')}</strong>.</span>
-              )}
+            <p className="font-bold text-sm">
+              {details.isGracePeriod ? 'Période de grâce active' : 'Abonnement en souffrance'}
+            </p>
+            <p className="text-xs text-text-secondary mt-0.5 max-w-xl">
+              {details.dunningNotice}
             </p>
           </div>
-
-          <div className="flex items-center gap-3">
-            <button
-              onClick={() => handleCheckout(currentPlan?.slug || 'pro')}
-              disabled={Boolean(checkoutLoading)}
-              className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-6 py-3.5 rounded-2xl shadow-lg shadow-emerald-600/20 text-xs flex items-center gap-2 transition disabled:opacity-50"
-            >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
-              </svg>
-              {checkoutLoading === currentPlan?.slug ? (
-                <span>Redirection BaridiMob...</span>
-              ) : (
-                <span>Payer avec BaridiMob / EDAHABIA</span>
-              )}
-            </button>
-          </div>
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={() => handleCheckout(currentPlan?.slug || 'starter')}
+          >
+            Régulariser Maintenant
+          </Button>
         </div>
+      )}
 
-        {/* Quota Progress Gauges Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mt-8 pt-8 border-t border-slate-800">
-          <div>
-            <div className="flex justify-between text-xs font-semibold mb-2">
-              <span className="text-slate-400">Succursales Atelier</span>
-              <span className="text-slate-200">{usage?.branchesCount} / {currentPlan?.maxBranches}</span>
-            </div>
-            <div className="w-full bg-slate-950 rounded-full h-2 overflow-hidden border border-slate-800">
-              <div
-                className="bg-blue-500 h-2 rounded-full transition-all"
-                style={{ width: `${Math.min(100, ((usage?.branchesCount || 1) / (currentPlan?.maxBranches || 1)) * 100)}%` }}
-              ></div>
-            </div>
-          </div>
+      {/* Quota & Usage StatCards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard
+          label="Forfait Actuel"
+          value={currentPlan?.name || 'Starter'}
+          subtitle={`Statut : ${details?.subscription?.status || 'Actif'}`}
+          badge={<Badge variant="success">Actif</Badge>}
+          icon={
+            <svg className="w-5 h-5 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4M7.835 4.697a3.42 3.42 0 001.946-.806 3.42 3.42 0 014.438 0 3.42 3.42 0 001.946.806 3.42 3.42 0 013.138 3.138 3.42 3.42 0 00.806 1.946 3.42 3.42 0 010 4.438 3.42 3.42 0 00-.806 1.946 3.42 3.42 0 01-3.138 3.138 3.42 3.42 0 00-1.946.806 3.42 3.42 0 01-4.438 0 3.42 3.42 0 00-1.946-.806 3.42 3.42 0 01-3.138-3.138 3.42 3.42 0 00-.806-1.946 3.42 3.42 0 010-4.438 3.42 3.42 0 00.806-1.946 3.42 3.42 0 013.138-3.138z" />
+            </svg>
+          }
+        />
 
-          <div>
-            <div className="flex justify-between text-xs font-semibold mb-2">
-              <span className="text-slate-400">Comptes Utilisateurs</span>
-              <span className="text-slate-200">{usage?.seatsCount} / {currentPlan?.maxSeats}</span>
-            </div>
-            <div className="w-full bg-slate-950 rounded-full h-2 overflow-hidden border border-slate-800">
-              <div
-                className="bg-amber-500 h-2 rounded-full transition-all"
-                style={{ width: `${Math.min(100, ((usage?.seatsCount || 1) / (currentPlan?.maxSeats || 1)) * 100)}%` }}
-              ></div>
-            </div>
-          </div>
+        <StatCard
+          label="Véhicules Enregistrés"
+          value={`${usage?.vehiclesCount || 0} / ${currentPlan?.max_vehicles ?? '∞'}`}
+          subtitle="Capacité de la flotte atelier"
+          icon={
+            <svg className="w-5 h-5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+            </svg>
+          }
+        />
 
-          <div>
-            <div className="flex justify-between text-xs font-semibold mb-2">
-              <span className="text-slate-400">Appels API (Ce Mois)</span>
-              <span className={`font-mono text-[11px] font-bold ${usage?.isApiQuotaWarning ? 'text-amber-400' : 'text-slate-200'}`}>
-                {usage?.apiCallsThisMonth?.toLocaleString('fr-FR')} / {currentPlan?.maxApiCallsPerMonth?.toLocaleString('fr-FR')}
-              </span>
-            </div>
-            <div className="w-full bg-slate-950 rounded-full h-2 overflow-hidden border border-slate-800">
-              <div
-                className={`h-2 rounded-full transition-all ${usage?.isApiQuotaWarning ? 'bg-amber-500' : 'bg-purple-500'}`}
-                style={{ width: `${usage?.apiQuotaPercent || 0}%` }}
-              ></div>
-            </div>
-          </div>
+        <StatCard
+          label="Cartes PVC Actives"
+          value={`${usage?.cardsCount || 0} / ${currentPlan?.max_cards ?? '∞'}`}
+          subtitle="Passeports physiques liés"
+          icon={
+            <svg className="w-5 h-5 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
+            </svg>
+          }
+        />
 
-          <div>
-            <div className="flex justify-between text-xs font-semibold mb-2">
-              <span className="text-slate-400">Studio Cartes & SEO</span>
-              <span className="text-emerald-400 font-bold uppercase text-[10px]">{currentPlan?.cardStudioTier}</span>
-            </div>
-            <div className="w-full bg-slate-950 rounded-full h-2 overflow-hidden border border-slate-800">
-              <div className="bg-emerald-500 h-2 rounded-full w-full"></div>
-            </div>
-          </div>
-        </div>
+        <StatCard
+          label="Collaborateurs Atelier"
+          value={`${usage?.usersCount || 0} / ${currentPlan?.max_users ?? '∞'}`}
+          subtitle="Comptes d'accès & techniciens"
+          icon={
+            <svg className="w-5 h-5 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+            </svg>
+          }
+        />
       </div>
 
-      {/* Plan Options Comparison */}
-      <div>
-        <h3 className="text-lg font-bold text-slate-100 mb-6">Changer de Forfait</h3>
+      {/* Plan Selection Cards */}
+      <div className="space-y-4">
+        <h2 className="text-lg font-bold text-text-primary">Choisir ou Mettre à Niveau Votre Forfait</h2>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {[
-            {
-              slug: 'starter',
-              name: 'Starter',
-              price: '4,900 DZD',
-              desc: 'Idéal pour les garages indépendants avec un atelier unique.',
-              features: [
-                '1 Succursale atelier',
-                '3 Comptes utilisateurs',
-                '10 000 Appels API / mois',
-                'Cartes PVC pré-imprimées',
-                'Gestion clients & véhicules',
-                'Facturation & devis PDF',
-                'Annuaire garages : Référencé',
-              ],
-            },
-            {
-              slug: 'pro',
-              name: 'Pro (Populaire)',
-              price: '12,900 DZD',
-              popular: true,
-              desc: 'Pour les ateliers en expansion souhaitant leur propre identité PVC et des intégrations.',
-              features: [
-                'Jusqu’à 3 Succursales',
-                '15 Comptes utilisateurs',
-                '100 000 Appels API / mois',
-                'Studio Design Cartes PVC sur-mesure',
-                '20 Annonces Pièces / mois',
-                'App Store & Intégrations Illimitées',
-                'Annuaire garages : Featured (En vedette)',
-              ],
-            },
-            {
-              slug: 'enterprise',
-              name: 'Enterprise',
-              price: '29,900 DZD',
-              desc: 'Pour les réseaux de garages, concessionnaires, franchises et flottes.',
-              features: [
-                'Succursales & Sièges illimités',
-                'Comptes utilisateurs illimités',
-                '1 000 000 Appels API / mois',
-                'Studio Design PVC + Marque Blanche',
-                'Annonces Marketplace illimitées',
-                'Annuaire garages : Spotlight (Top classement)',
-                'Support prioritaire dédié 24/7',
-              ],
-            },
-          ].map((plan) => {
-            const isCurrent = currentPlan?.slug === plan.slug;
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {data?.plans?.map((p: any) => {
+            const isCurrent = currentPlan?.slug === p.slug;
             return (
-              <div
-                key={plan.slug}
-                className={`p-6 sm:p-8 rounded-3xl border flex flex-col justify-between relative transition duration-200 ${
-                  plan.popular
-                    ? 'bg-slate-900 border-purple-500/50 shadow-2xl shadow-purple-900/10'
-                    : 'bg-slate-900/60 border-slate-800 hover:border-slate-700'
+              <Card
+                key={p.id}
+                className={`relative flex flex-col justify-between ${
+                  p.slug === 'pro'
+                    ? 'border-accent shadow-lg shadow-blue-500/10'
+                    : ''
                 }`}
               >
-                {plan.popular && (
-                  <span className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 bg-purple-600 text-white text-[10px] font-black uppercase tracking-wider rounded-full shadow-lg shadow-purple-600/30">
-                    Recommandé
-                  </span>
-                )}
-
                 <div>
-                  <h4 className="text-xl font-black text-slate-100">{plan.name}</h4>
-                  <p className="text-xs text-slate-400 mt-1 min-h-[32px]">{plan.desc}</p>
+                  <CardHeader>
+                    <div className="flex items-center justify-between">
+                      <CardTitle>{p.name}</CardTitle>
+                      {p.slug === 'pro' && <Badge variant="info">Recommandé</Badge>}
+                      {isCurrent && <Badge variant="success">Forfait Actif</Badge>}
+                    </div>
+                    <CardDescription>{p.description}</CardDescription>
+                  </CardHeader>
 
-                  <div className="mt-4 mb-6">
-                    <span className="text-2xl font-black text-slate-100">{plan.price}</span>
-                    <span className="text-xs text-slate-400"> / mois</span>
-                  </div>
+                  <CardContent className="space-y-4">
+                    <div className="flex items-baseline gap-1">
+                      <span className="text-3xl font-black font-mono text-text-primary">
+                        {p.price_dzd?.toLocaleString()}
+                      </span>
+                      <span className="text-xs text-text-muted">DZD / mois</span>
+                    </div>
 
-                  <ul className="space-y-2.5 text-xs text-slate-300 border-t border-slate-800/80 pt-6">
-                    {plan.features.map((feat, idx) => (
-                      <li key={idx} className="flex items-center gap-2.5">
+                    <ul className="space-y-2.5 text-xs text-text-secondary border-t border-border-subtle pt-4">
+                      <li className="flex items-center gap-2">
                         <svg className="w-4 h-4 text-emerald-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                         </svg>
-                        <span>{feat}</span>
+                        <span>Jusqu&apos;à <strong className="text-text-primary">{p.max_vehicles ?? 'Illimité'}</strong> véhicules</span>
                       </li>
-                    ))}
-                  </ul>
+                      <li className="flex items-center gap-2">
+                        <svg className="w-4 h-4 text-emerald-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                        <span>Jusqu&apos;à <strong className="text-text-primary">{p.max_cards ?? 'Illimité'}</strong> cartes PVC</span>
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <svg className="w-4 h-4 text-emerald-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                        <span>Jusqu&apos;à <strong className="text-text-primary">{p.max_users ?? 'Illimité'}</strong> comptes d&apos;accès</span>
+                      </li>
+                      {p.features?.map((f: string, i: number) => (
+                        <li key={i} className="flex items-center gap-2">
+                          <svg className="w-4 h-4 text-emerald-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                          </svg>
+                          <span>{f}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </CardContent>
                 </div>
 
-                <div className="mt-8 pt-6 border-t border-slate-800/80">
-                  {isCurrent ? (
-                    <button
-                      disabled
-                      className="w-full py-3 bg-slate-800 text-slate-400 text-xs font-bold rounded-2xl cursor-default border border-slate-700"
-                    >
-                      Forfait Actuel
-                    </button>
-                  ) : (
-                    <button
-                      onClick={() => handleCheckout(plan.slug)}
-                      disabled={Boolean(checkoutLoading)}
-                      className={`w-full py-3 text-xs font-bold rounded-2xl transition shadow-lg ${
-                        plan.popular
-                          ? 'bg-purple-600 hover:bg-purple-500 text-white shadow-purple-600/20'
-                          : 'bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700'
-                      }`}
-                    >
-                      {checkoutLoading === plan.slug ? 'Chargement Chargily...' : `Choisir ${plan.name}`}
-                    </button>
-                  )}
-                </div>
-              </div>
+                <CardFooter className="pt-4 border-t border-border-subtle">
+                  <Button
+                    variant={isCurrent ? 'secondary' : p.slug === 'pro' ? 'primary' : 'secondary'}
+                    className="w-full"
+                    disabled={isCurrent}
+                    isLoading={checkoutLoading === p.slug}
+                    onClick={() => handleCheckout(p.slug)}
+                  >
+                    {isCurrent ? 'Forfait Actuel' : `Souscrire via Chargily`}
+                  </Button>
+                </CardFooter>
+              </Card>
             );
           })}
         </div>
-      </div>
-
-      {/* Data Portability & GDPR / Protection Guarantee */}
-      <div className="p-6 rounded-3xl bg-slate-900 border border-slate-800 shadow-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-4">
-          <div className="p-3 rounded-2xl bg-blue-500/10 text-blue-400 border border-blue-500/20 shrink-0">
-            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-            </svg>
-          </div>
-          <div>
-            <h4 className="text-sm font-bold text-slate-100">Portabilité & Sauvegarde des Données Atelier</h4>
-            <p className="text-xs text-slate-400 mt-0.5">
-              Exportez l'intégralité de vos fiches clients, véhicules, historiques d'ordres de réparation, factures et stocks dans un format JSON standard.
-            </p>
-          </div>
-        </div>
-
-        <button
-          onClick={handleExportData}
-          disabled={exporting}
-          className="px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-bold text-xs rounded-xl transition flex items-center gap-2 shrink-0"
-        >
-          <svg className="w-4 h-4 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-          </svg>
-          {exporting ? 'Téléchargement...' : 'Exporter mes données (JSON)'}
-        </button>
       </div>
     </div>
   );

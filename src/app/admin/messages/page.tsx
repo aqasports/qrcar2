@@ -3,6 +3,14 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
+import {
+  PageHeader,
+  Badge,
+  Button,
+  Input,
+  Spinner,
+  EmptyState,
+} from '@/components/ui';
 
 interface Conversation {
   id: string;
@@ -59,7 +67,6 @@ export default function DirectMessagesPage() {
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // 1. Fetch conversations list
   const fetchConversations = async () => {
     try {
       const res = await fetch('/api/messages/conversations');
@@ -67,7 +74,6 @@ export default function DirectMessagesPage() {
         const data = await res.json();
         setConversations(data);
 
-        // If no active conversation selected yet, pick first
         if (!activeConvId && data.length > 0 && !newToOrg) {
           setActiveConvId(data[0].id);
         }
@@ -79,7 +85,6 @@ export default function DirectMessagesPage() {
     }
   };
 
-  // 2. Fetch single conversation message history
   const fetchMessages = async (convId: string) => {
     try {
       const res = await fetch(`/api/messages/conversations/${convId}`);
@@ -93,7 +98,6 @@ export default function DirectMessagesPage() {
     }
   };
 
-  // 3. Handle initial direct link parameter (?new_to_org=...)
   useEffect(() => {
     async function initDirectChat() {
       if (newToOrg && activeOrgId) {
@@ -102,57 +106,43 @@ export default function DirectMessagesPage() {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              recipient_org_id: newToOrg,
+              target_org_id: newToOrg,
               context_type: initialContextType,
               context_id: initialContextId,
               context_title: initialContextTitle,
             }),
           });
           if (res.ok) {
-            const conv = await res.json();
-            setActiveConvId(conv.id);
+            const data = await res.json();
+            setActiveConvId(data.conversation.id);
             await fetchConversations();
           }
         } catch (err) {
           console.error(err);
         }
+      } else {
+        fetchConversations();
       }
     }
     initDirectChat();
   }, [newToOrg, activeOrgId]);
 
-  // Initial load
-  useEffect(() => {
-    fetchConversations();
-  }, []);
-
-  // When activeConvId changes, fetch messages
   useEffect(() => {
     if (activeConvId) {
       fetchMessages(activeConvId);
+      const interval = setInterval(() => fetchMessages(activeConvId), 4000);
+      return () => clearInterval(interval);
     }
   }, [activeConvId]);
 
-  // Real-time polling every 4 seconds
-  useEffect(() => {
-    const interval = setInterval(() => {
-      fetchConversations();
-      if (activeConvId) {
-        fetchMessages(activeConvId);
-      }
-    }, 4000);
-
-    return () => clearInterval(interval);
-  }, [activeConvId]);
-
-  // Scroll to bottom on new messages
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!activeConvId || !messageText.trim() || sending) return;
+    if (!messageText.trim() && !dtcAttachment && !partRefAttachment) return;
+    if (!activeConvId) return;
 
     try {
       setSending(true);
@@ -160,21 +150,20 @@ export default function DirectMessagesPage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          message_text: messageText.trim(),
+          message_text: messageText,
           dtc_attachment: dtcAttachment.trim() || null,
           part_ref_attachment: partRefAttachment.trim() || null,
         }),
       });
 
-      if (!res.ok) throw new Error('Erreur lors de l’envoi du message.');
-
-      setMessageText('');
-      setDtcAttachment('');
-      setPartRefAttachment('');
-      setShowAttachments(false);
-
-      await fetchMessages(activeConvId);
-      await fetchConversations();
+      if (res.ok) {
+        setMessageText('');
+        setDtcAttachment('');
+        setPartRefAttachment('');
+        setShowAttachments(false);
+        fetchMessages(activeConvId);
+        fetchConversations();
+      }
     } catch (err) {
       console.error(err);
     } finally {
@@ -182,128 +171,113 @@ export default function DirectMessagesPage() {
     }
   };
 
-  if (loading && conversations.length === 0) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
-      </div>
-    );
-  }
-
   return (
-    <div className="space-y-6 font-sans max-w-7xl h-[calc(100vh-140px)] flex flex-col">
-      {/* Header */}
-      <div className="flex items-center justify-between shrink-0">
-        <div>
-          <h1 className="text-2xl font-black text-slate-100 tracking-tight">Messagerie Directe Inter-Garages</h1>
-          <p className="text-xs text-slate-400 mt-0.5">
-            Échangez en temps réel avec vos confrères garagistes, experts en diagnostic et fournisseurs de pièces en Algérie.
-          </p>
+    <div className="space-y-6 max-w-7xl mx-auto pb-16">
+      <PageHeader
+        title="Messagerie Directe B2B Inter-Ateliers"
+        subtitle="Échangez instantanément entre chefs d'atelier sur les pièces de rechange, diagnostics et disponibilités"
+        breadcrumbs={[
+          { label: 'Tableau de bord', href: '/admin' },
+          { label: 'Messagerie' },
+        ]}
+      />
+
+      {loading ? (
+        <div className="flex flex-col items-center justify-center min-h-[50vh] gap-3">
+          <Spinner size="lg" />
+          <p className="text-xs text-text-muted">Chargement des conversations...</p>
         </div>
-      </div>
+      ) : (
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 min-h-[600px] bg-surface-raised border border-border-subtle rounded-3xl overflow-hidden shadow-2xl">
+          {/* Left Panel: Conversations List */}
+          <div className="lg:col-span-4 border-r border-border-subtle flex flex-col bg-surface-raised">
+            <div className="p-4 border-b border-border-subtle">
+              <span className="text-xs font-bold text-text-secondary uppercase tracking-wider">
+                Discussions Actives ({conversations.length})
+              </span>
+            </div>
 
-      {/* Split-Pane Chat Container */}
-      <div className="bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden shadow-2xl flex-1 flex flex-col md:flex-row min-h-0">
-        {/* Left Pane: Conversations List (320px) */}
-        <div className="w-full md:w-80 border-b md:border-b-0 md:border-r border-slate-800 flex flex-col shrink-0 bg-slate-950/40">
-          <div className="p-4 border-b border-slate-800 flex items-center justify-between">
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
-              Discussions ({conversations.length})
-            </span>
-          </div>
-
-          <div className="flex-1 overflow-y-auto divide-y divide-slate-800/60">
-            {conversations.length === 0 ? (
-              <div className="p-8 text-center text-slate-500 text-xs">
-                Aucune conversation en cours. Contactez un atelier depuis la Marketplace ou l&apos;Annuaire.
-              </div>
-            ) : (
-              conversations.map((c) => {
-                const isSelected = c.id === activeConvId;
-                return (
-                  <button
-                    key={c.id}
-                    onClick={() => setActiveConvId(c.id)}
-                    className={`w-full p-4 text-left flex items-start gap-3 transition ${
-                      isSelected
-                        ? 'bg-blue-600/10 border-l-4 border-blue-500'
-                        : 'hover:bg-slate-800/40'
-                    }`}
-                  >
-                    <div className="w-10 h-10 rounded-xl bg-slate-800 flex items-center justify-center font-bold text-slate-200 text-xs shrink-0 uppercase border border-slate-700">
-                      {c.counterpart_name.slice(0, 2)}
-                    </div>
-
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between">
-                        <span className="font-bold text-slate-100 text-xs truncate">
-                          {c.counterpart_name}
-                        </span>
-                        {c.unread_count > 0 && (
-                          <span className="w-4 h-4 rounded-full bg-blue-500 text-white text-[9px] font-black flex items-center justify-center shrink-0">
-                            {c.unread_count}
-                          </span>
-                        )}
+            <div className="flex-1 overflow-y-auto divide-y divide-border-subtle/50">
+              {conversations.length === 0 ? (
+                <div className="p-8 text-center text-xs text-text-muted">
+                  Aucune conversation en cours. Contactez un atelier depuis la Marketplace ou l&apos;Annuaire.
+                </div>
+              ) : (
+                conversations.map((c) => {
+                  const isActive = c.id === activeConvId;
+                  return (
+                    <button
+                      key={c.id}
+                      type="button"
+                      onClick={() => setActiveConvId(c.id)}
+                      className={`w-full text-left p-4 transition-all duration-150 flex items-start gap-3 ${
+                        isActive
+                          ? 'bg-surface-overlay border-l-4 border-accent'
+                          : 'hover:bg-surface-overlay/50'
+                      }`}
+                    >
+                      <div className="w-10 h-10 rounded-xl bg-surface-base border border-border-subtle flex items-center justify-center font-bold text-xs text-text-primary shrink-0">
+                        {c.counterpart_name.charAt(0)}
                       </div>
 
-                      {c.context_title && (
-                        <span className="text-[10px] text-blue-400 font-semibold truncate block mt-0.5">
-                          {c.context_title}
-                        </span>
-                      )}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold text-xs text-text-primary truncate">
+                            {c.counterpart_name}
+                          </span>
+                          <span className="text-[10px] text-text-muted font-mono">
+                            {c.last_message_at ? new Date(c.last_message_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : ''}
+                          </span>
+                        </div>
 
-                      <p className="text-[11px] text-slate-400 truncate mt-1">
-                        {c.last_message_text || 'Nouvelle conversation'}
-                      </p>
-                    </div>
-                  </button>
-                );
-              })
-            )}
+                        {c.context_title && (
+                          <span className="text-[10px] text-accent font-medium truncate block mt-0.5">
+                            {c.context_title}
+                          </span>
+                        )}
+
+                        <p className="text-xs text-text-muted truncate mt-1">
+                          {c.last_message_text || 'Nouvelle conversation initiée'}
+                        </p>
+                      </div>
+                    </button>
+                  );
+                })
+              )}
+            </div>
           </div>
-        </div>
 
-        {/* Right Pane: Active Chat Stream & Composer */}
-        <div className="flex-1 flex flex-col min-w-0 bg-slate-900">
-          {activeConv ? (
-            <>
-              {/* Top Chat Bar */}
-              <div className="p-4 px-6 border-b border-slate-800 flex items-center justify-between bg-slate-900/60 backdrop-blur-md shrink-0">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-2xl bg-blue-600 flex items-center justify-center font-black text-white text-xs shadow-lg shadow-blue-600/20">
-                    {activeConv.counterpart_name.slice(0, 2).toUpperCase()}
+          {/* Right Panel: Active Chat Thread */}
+          <div className="lg:col-span-8 flex flex-col justify-between bg-surface-base">
+            {activeConv ? (
+              <>
+                {/* Chat Header */}
+                <div className="p-4 border-b border-border-subtle flex items-center justify-between bg-surface-raised">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-surface-overlay border border-border-default flex items-center justify-center font-bold text-sm text-text-primary">
+                      {activeConv.counterpart_name.charAt(0)}
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-sm text-text-primary">
+                        {activeConv.counterpart_name}
+                      </h3>
+                      <span className="text-xs text-text-muted">
+                        {activeConv.counterpart_wilaya || 'Algérie'}
+                        {activeConv.counterpart_phone ? ` — ${activeConv.counterpart_phone}` : ''}
+                      </span>
+                    </div>
                   </div>
 
-                  <div>
-                    <h3 className="font-extrabold text-slate-100 text-sm">{activeConv.counterpart_name}</h3>
-                    <p className="text-[11px] text-slate-400">
-                      Wilaya : {activeConv.counterpart_wilaya || 'Algérie'}
-                      {activeConv.context_title && ` • Réf : ${activeConv.context_title}`}
-                    </p>
-                  </div>
+                  {activeConv.context_title && (
+                    <Badge variant="info">
+                      {activeConv.context_title}
+                    </Badge>
+                  )}
                 </div>
 
-                {activeConv.counterpart_phone && (
-                  <a
-                    href={`tel:${activeConv.counterpart_phone}`}
-                    className="px-3.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold transition flex items-center gap-2"
-                  >
-                    <svg className="w-3.5 h-3.5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
-                    </svg>
-                    <span>Appeler</span>
-                  </a>
-                )}
-              </div>
-
-              {/* Messages History List */}
-              <div className="flex-1 overflow-y-auto p-6 space-y-4">
-                {messages.length === 0 ? (
-                  <div className="text-center text-slate-500 text-xs py-12">
-                    Démarrez votre échange technique en écrivant un message ci-dessous.
-                  </div>
-                ) : (
-                  messages.map((m) => {
+                {/* Messages Stream */}
+                <div className="flex-1 p-6 overflow-y-auto space-y-4">
+                  {messages.map((m) => {
                     const isMe = m.sender_org_id === activeOrgId;
                     return (
                       <div
@@ -311,122 +285,90 @@ export default function DirectMessagesPage() {
                         className={`flex flex-col ${isMe ? 'items-end' : 'items-start'}`}
                       >
                         <div
-                          className={`max-w-lg p-3.5 rounded-2xl text-xs space-y-1.5 shadow-md ${
+                          className={`max-w-md p-4 rounded-2xl text-xs sm:text-sm space-y-2 ${
                             isMe
-                              ? 'bg-blue-600 text-white rounded-br-none'
-                              : 'bg-slate-800 text-slate-100 rounded-bl-none border border-slate-700'
+                              ? 'bg-accent text-white rounded-tr-none shadow-lg shadow-blue-500/10'
+                              : 'bg-surface-raised border border-border-subtle text-text-primary rounded-tl-none'
                           }`}
                         >
-                          {/* Attached Badges if present */}
-                          {(m.dtc_attachment || m.part_ref_attachment) && (
-                            <div className="flex flex-wrap gap-1.5 pb-1">
-                              {m.dtc_attachment && (
-                                <span className="px-2 py-0.5 rounded bg-slate-950/40 text-amber-300 font-mono font-bold text-[10px]">
-                                  DTC: {m.dtc_attachment}
-                                </span>
-                              )}
-                              {m.part_ref_attachment && (
-                                <span className="px-2 py-0.5 rounded bg-slate-950/40 text-cyan-300 font-mono font-bold text-[10px]">
-                                  RÉF: {m.part_ref_attachment}
-                                </span>
-                              )}
+                          <p className="leading-relaxed whitespace-pre-wrap">{m.message_text}</p>
+
+                          {m.dtc_attachment && (
+                            <div className="p-2 rounded-xl bg-black/20 font-mono text-[11px] font-bold">
+                              Code DTC attaché : {m.dtc_attachment}
                             </div>
                           )}
 
-                          <p className="leading-relaxed whitespace-pre-wrap">{m.message_text}</p>
-                        </div>
-
-                        <div className="flex items-center gap-1 mt-1 text-[10px] text-slate-500 font-mono px-1">
-                          <span>{new Date(m.created_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</span>
-                          {isMe && (
-                            <span>• {m.is_read ? 'Vu' : 'Envoyé'}</span>
+                          {m.part_ref_attachment && (
+                            <div className="p-2 rounded-xl bg-black/20 font-mono text-[11px] font-bold">
+                              Réf. Pièce attachée : {m.part_ref_attachment}
+                            </div>
                           )}
                         </div>
+
+                        <span className="text-[10px] text-text-muted mt-1 px-1 font-mono">
+                          {new Date(m.created_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                        </span>
                       </div>
                     );
-                  })
-                )}
-                <div ref={messagesEndRef} />
-              </div>
+                  })}
+                  <div ref={messagesEndRef} />
+                </div>
 
-              {/* Message Composer */}
-              <div className="p-4 border-t border-slate-800 bg-slate-950/40 space-y-3">
-                {/* Optional Attachments Bar */}
-                {showAttachments && (
-                  <div className="grid grid-cols-2 gap-3 p-3 bg-slate-900 border border-slate-800 rounded-2xl text-xs">
-                    <div>
-                      <label className="block text-[10px] font-bold text-amber-400 uppercase mb-1">
-                        Code Défaut DTC lié
-                      </label>
-                      <input
-                        type="text"
-                        placeholder="ex: P0300, DF053"
+                {/* Composer */}
+                <form onSubmit={handleSendMessage} className="p-4 border-t border-border-subtle bg-surface-raised space-y-3">
+                  {showAttachments && (
+                    <div className="grid grid-cols-2 gap-2 p-3 rounded-xl bg-surface-base border border-border-subtle">
+                      <Input
+                        placeholder="Attacher Code DTC (ex. P0300)"
                         value={dtcAttachment}
-                        onChange={(e) => setDtcAttachment(e.target.value)}
-                        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-1.5 text-xs text-amber-300 font-mono focus:outline-none"
+                        onChange={(e) => setDtcAttachment(e.target.value.toUpperCase())}
                       />
-                    </div>
-
-                    <div>
-                      <label className="block text-[10px] font-bold text-cyan-400 uppercase mb-1">
-                        Réf. Pièce OEM liée
-                      </label>
-                      <input
-                        type="text"
-                        placeholder="ex: 0445110369"
+                      <Input
+                        placeholder="Attacher Réf. Pièce (ex. 8200...)"
                         value={partRefAttachment}
-                        onChange={(e) => setPartRefAttachment(e.target.value)}
-                        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-2.5 py-1.5 text-xs text-cyan-300 font-mono focus:outline-none"
+                        onChange={(e) => setPartRefAttachment(e.target.value.toUpperCase())}
                       />
                     </div>
+                  )}
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowAttachments(!showAttachments)}
+                      className="p-2.5 rounded-xl border border-border-subtle text-text-muted hover:text-text-primary hover:bg-surface-overlay transition"
+                      title="Attacher un code DTC ou une référence pièce"
+                    >
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                      </svg>
+                    </button>
+
+                    <div className="flex-1">
+                      <Input
+                        placeholder="Rédigez votre message à l'atelier..."
+                        value={messageText}
+                        onChange={(e) => setMessageText(e.target.value)}
+                      />
+                    </div>
+
+                    <Button type="submit" isLoading={sending}>
+                      Envoyer
+                    </Button>
                   </div>
-                )}
-
-                <form onSubmit={handleSendMessage} className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setShowAttachments(!showAttachments)}
-                    className={`p-2.5 rounded-xl border text-xs transition ${
-                      showAttachments
-                        ? 'bg-blue-600 text-white border-blue-500'
-                        : 'bg-slate-900 text-slate-400 border-slate-800 hover:text-slate-200'
-                    }`}
-                    title="Joindre Code DTC ou Réf. Pièce"
-                  >
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
-                    </svg>
-                  </button>
-
-                  <input
-                    type="text"
-                    required
-                    placeholder="Écrivez votre message à l'atelier..."
-                    value={messageText}
-                    onChange={(e) => setMessageText(e.target.value)}
-                    className="flex-1 bg-slate-900 border border-slate-800 rounded-2xl px-4 py-3 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-blue-500"
-                  />
-
-                  <button
-                    type="submit"
-                    disabled={sending || !messageText.trim()}
-                    className="px-5 py-3 rounded-2xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold shadow-lg shadow-blue-600/20 transition disabled:opacity-50 flex items-center gap-2 shrink-0"
-                  >
-                    <span>Envoyer</span>
-                    <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
-                    </svg>
-                  </button>
                 </form>
+              </>
+            ) : (
+              <div className="flex flex-col items-center justify-center h-full p-8 text-center">
+                <EmptyState
+                  title="Sélectionnez une discussion"
+                  description="Choisissez un atelier partenaire dans la colonne de gauche pour afficher les messages."
+                />
               </div>
-            </>
-          ) : (
-            <div className="flex-1 flex items-center justify-center text-center p-8 text-slate-500 text-xs">
-              Sélectionnez une discussion pour afficher les messages.
-            </div>
-          )}
+            )}
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 }

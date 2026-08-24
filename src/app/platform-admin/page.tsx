@@ -1,6 +1,23 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import {
+  PageHeader,
+  StatCard,
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+  TableLoadingState,
+  TableEmptyState,
+  Badge,
+  Button,
+  Input,
+  Select,
+  Modal,
+} from '@/components/ui';
 
 export default function PlatformAdminDashboardPage() {
   const [data, setData] = useState<any>(null);
@@ -51,14 +68,6 @@ export default function PlatformAdminDashboardPage() {
     }
   };
 
-  if (loading && !data) {
-    return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-red-500"></div>
-      </div>
-    );
-  }
-
   const metrics = data?.metrics || {
     totalGarages: 0,
     activeCount: 0,
@@ -77,271 +86,210 @@ export default function PlatformAdminDashboardPage() {
     return matchesSearch && matchesStatus;
   });
 
+  const getSubStatusBadge = (status: string) => {
+    switch (status) {
+      case 'active':
+        return <Badge variant="success">Actif</Badge>;
+      case 'trialing':
+        return <Badge variant="info">Essai Pro</Badge>;
+      case 'past_due':
+        return <Badge variant="danger" pulse>En Souffrance</Badge>;
+      case 'canceled':
+        return <Badge variant="neutral">Résilié</Badge>;
+      default:
+        return <Badge variant="neutral">{status || 'Inactif'}</Badge>;
+    }
+  };
+
   return (
-    <div className="space-y-8 font-sans">
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-black text-slate-100 tracking-tight flex items-center gap-3">
-          <span>Supervision des Garages & Abonnements</span>
-          <span className="text-xs px-2.5 py-0.5 rounded-full bg-red-500/10 text-red-400 border border-red-500/20 font-bold uppercase">
-            Ops Level 1
-          </span>
-        </h1>
-        <p className="text-sm text-slate-400 mt-1">
-          Vue d&apos;ensemble de tous les locataires, abonnements Chargily Pay (BaridiMob), quotas et gestion administrative.
-        </p>
+    <div className="space-y-8 max-w-7xl mx-auto pb-16 font-sans">
+      <PageHeader
+        title="Supervision de la Plateforme (Multi-Tenancy Ops)"
+        subtitle="Contrôle global des ateliers inscrits, des abonnements Chargily Pay, des quotas de flotte et de la conformité"
+        breadcrumbs={[
+          { label: 'Platform Admin', href: '/platform-admin' },
+          { label: 'Ateliers & Abonnements' },
+        ]}
+        badge={<Badge variant="danger">Super Admin</Badge>}
+      />
+
+      {/* KPI Stats */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard
+          label="Total Ateliers Inscrits"
+          value={metrics.totalGarages}
+          subtitle={`${metrics.activeCount} abonnements payants actifs`}
+          icon={
+            <svg className="w-5 h-5 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+            </svg>
+          }
+        />
+
+        <StatCard
+          label="MRR Global Estimé"
+          value={`${metrics.totalMRR?.toLocaleString()} DZD`}
+          subtitle="Revenu Mensuel Récurrent"
+          icon={
+            <svg className="w-5 h-5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          }
+        />
+
+        <StatCard
+          label="Véhicules Suivis au Total"
+          value={metrics.totalVehicles}
+          subtitle={`${metrics.totalActions} ordres de réparation exécutés`}
+          icon={
+            <svg className="w-5 h-5 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+            </svg>
+          }
+        />
+
+        <StatCard
+          label="Comptes en Souffrance"
+          value={metrics.pastDueCount}
+          subtitle="Dunning / Retards de paiement"
+          badge={metrics.pastDueCount > 0 ? <Badge variant="danger">Attention</Badge> : <Badge variant="success">À jour</Badge>}
+          icon={
+            <svg className="w-5 h-5 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+          }
+        />
       </div>
 
-      {/* KPI Metric Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl">
-          <div className="flex justify-between items-start">
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Total Garages</span>
-            <span className="p-2 rounded-xl bg-blue-500/10 text-blue-400">
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-              </svg>
-            </span>
-          </div>
-          <p className="text-3xl font-black text-slate-100 mt-3">{metrics.totalGarages}</p>
-          <div className="flex items-center gap-2 mt-2 text-xs text-slate-400">
-            <span className="text-emerald-400 font-bold">{metrics.activeCount} Actifs</span>
-            <span>•</span>
-            <span className="text-blue-400 font-bold">{metrics.trialingCount} En essai</span>
-          </div>
+      {/* Filter Bar */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className="flex items-center gap-3 flex-1 max-w-md">
+          <Input
+            placeholder="Rechercher par nom de garage, slug..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
         </div>
 
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl">
-          <div className="flex justify-between items-start">
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Revenu Mensuel (MRR)</span>
-            <span className="p-2 rounded-xl bg-emerald-500/10 text-emerald-400">
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            </span>
-          </div>
-          <p className="text-3xl font-black text-emerald-400 mt-3">
-            {metrics.totalMRR.toLocaleString('fr-FR')} <span className="text-sm font-normal text-slate-400">DZD</span>
-          </p>
-          <p className="text-xs text-slate-400 mt-2">Souscriptions BaridiMob / EDAHABIA</p>
-        </div>
-
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl">
-          <div className="flex justify-between items-start">
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Véhicules Enregistrés</span>
-            <span className="p-2 rounded-xl bg-amber-500/10 text-amber-400">
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-              </svg>
-            </span>
-          </div>
-          <p className="text-3xl font-black text-slate-100 mt-3">{metrics.totalVehicles}</p>
-          <p className="text-xs text-slate-400 mt-2">Cartes d&apos;identité PVC actives</p>
-        </div>
-
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 shadow-xl">
-          <div className="flex justify-between items-start">
-            <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Interventions Atelier</span>
-            <span className="p-2 rounded-xl bg-purple-500/10 text-purple-400">
-              <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-              </svg>
-            </span>
-          </div>
-          <p className="text-3xl font-black text-slate-100 mt-3">{metrics.totalActions}</p>
-          <p className="text-xs text-slate-400 mt-2">Traçabilité & réparations</p>
+        <div className="w-52">
+          <Select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+          >
+            <option value="all">Tous les états</option>
+            <option value="active">Abonnements Actifs</option>
+            <option value="trialing">Période d&apos;Essai</option>
+            <option value="past_due">En Souffrance (Past Due)</option>
+            <option value="canceled">Résiliés</option>
+          </Select>
         </div>
       </div>
 
-      {/* Organizations Table Card */}
-      <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-2xl">
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 mb-6">
-          <h3 className="text-lg font-bold text-slate-100">Liste des Ateliers Enregistrés ({organizations.length})</h3>
-
-          <div className="flex items-center gap-3 w-full sm:w-auto">
-            <input
-              type="text"
-              placeholder="Rechercher par nom ou slug..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-slate-100 placeholder-slate-600 focus:outline-none focus:border-red-500 transition w-full sm:w-64"
+      {/* Organizations Table */}
+      <Table>
+        <TableHeader>
+          <tr>
+            <TableHead>Atelier / Raison Sociale</TableHead>
+            <TableHead>Forfait</TableHead>
+            <TableHead>Statut Abonnement</TableHead>
+            <TableHead className="text-right">Véhicules</TableHead>
+            <TableHead className="text-right">Cartes PVC</TableHead>
+            <TableHead className="text-right">Action</TableHead>
+          </tr>
+        </TableHeader>
+        <TableBody>
+          {loading ? (
+            <TableLoadingState colSpan={6} message="Chargement des ateliers locataires..." />
+          ) : organizations.length === 0 ? (
+            <TableEmptyState
+              colSpan={6}
+              title="Aucun atelier trouvé"
+              description="Aucun locataire ne correspond à vos filtres de recherche."
             />
-
-            <select
-              value={statusFilter}
-              onChange={(e) => setStatusFilter(e.target.value)}
-              className="bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-300 focus:outline-none focus:border-red-500"
-            >
-              <option value="all">Tous les statuts</option>
-              <option value="active">Actif</option>
-              <option value="trialing">En Essai</option>
-              <option value="past_due">En Retard / Expiré</option>
-              <option value="canceled">Suspendu</option>
-            </select>
-          </div>
-        </div>
-
-        {/* Table */}
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs text-slate-300">
-            <thead className="bg-slate-950/60 text-slate-400 font-bold uppercase tracking-wider text-[10px] border-b border-slate-800">
-              <tr>
-                <th className="py-3 px-4">Atelier / Garage</th>
-                <th className="py-3 px-4">Forfait</th>
-                <th className="py-3 px-4">Statut</th>
-                <th className="py-3 px-4">Utilisateurs</th>
-                <th className="py-3 px-4">Véhicules</th>
-                <th className="py-3 px-4">Échéance / Essai</th>
-                <th className="py-3 px-4 text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-800">
-              {organizations.map((org: any) => (
-                <tr key={org.id} className="hover:bg-slate-800/30 transition">
-                  <td className="py-3.5 px-4">
-                    <div className="font-bold text-slate-100">{org.name}</div>
-                    <div className="text-[11px] font-mono text-slate-500">/{org.slug}</div>
-                  </td>
-                  <td className="py-3.5 px-4">
-                    <span className="font-semibold text-slate-200">{org.plan_name || 'Pro'}</span>
-                    <div className="text-[10px] text-amber-400">{parseFloat(org.price_monthly || '0').toLocaleString('fr-FR')} DZD/m</div>
-                  </td>
-                  <td className="py-3.5 px-4">
-                    <span
-                      className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider border ${
-                        org.subscription_status === 'active'
-                          ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
-                          : org.subscription_status === 'trialing'
-                          ? 'bg-blue-500/10 text-blue-400 border-blue-500/20'
-                          : 'bg-red-500/10 text-red-400 border-red-500/20'
-                      }`}
-                    >
-                      {org.subscription_status === 'trialing' ? 'Essai' : org.subscription_status}
-                    </span>
-                  </td>
-                  <td className="py-3.5 px-4 font-semibold text-slate-200">{org.members_count || 1}</td>
-                  <td className="py-3.5 px-4 font-semibold text-slate-200">{org.vehicles_count || 0}</td>
-                  <td className="py-3.5 px-4 text-slate-400 text-[11px]">
-                    {org.subscription_status === 'trialing' && org.trial_ends_at
-                      ? `Essai: ${new Date(org.trial_ends_at).toLocaleDateString('fr-FR')}`
-                      : org.current_period_ends_at
-                      ? `Renouv.: ${new Date(org.current_period_ends_at).toLocaleDateString('fr-FR')}`
-                      : 'Non planifié'}
-                  </td>
-                  <td className="py-3.5 px-4 text-right">
-                    <div className="flex items-center justify-end gap-2">
-                      <button
-                        onClick={() => setSelectedOrg(org)}
-                        className="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold transition"
-                      >
-                        Gérer
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
+          ) : (
+            organizations.map((org: any) => (
+              <TableRow key={org.id}>
+                <TableCell>
+                  <span className="font-bold text-text-primary block">{org.name}</span>
+                  <span className="text-xs font-mono text-text-muted block">/{org.slug}</span>
+                </TableCell>
+                <TableCell className="font-semibold text-text-secondary capitalize">
+                  {org.plan_name || 'Starter'}
+                </TableCell>
+                <TableCell>{getSubStatusBadge(org.subscription_status)}</TableCell>
+                <TableCell className="text-right font-mono font-bold text-text-primary">
+                  {org.vehicle_count || 0}
+                </TableCell>
+                <TableCell className="text-right font-mono font-bold text-text-primary">
+                  {org.pvc_card_count || 0}
+                </TableCell>
+                <TableCell className="text-right">
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => setSelectedOrg(org)}
+                  >
+                    Gérer
+                  </Button>
+                </TableCell>
+              </TableRow>
+            ))
+          )}
+        </TableBody>
+      </Table>
 
       {/* Edit Organization Modal */}
-      {selectedOrg && (
-        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 max-w-lg w-full shadow-2xl space-y-6">
-            <div className="flex justify-between items-center border-b border-slate-800 pb-4">
-              <div>
-                <h3 className="text-lg font-bold text-slate-100">Gérer {selectedOrg.name}</h3>
-                <p className="text-xs font-mono text-slate-400">ID: {selectedOrg.id}</p>
-              </div>
-              <button
-                onClick={() => setSelectedOrg(null)}
-                className="text-slate-400 hover:text-slate-200"
+      <Modal
+        isOpen={Boolean(selectedOrg)}
+        onClose={() => setSelectedOrg(null)}
+        title={`Administration de l'Atelier : ${selectedOrg?.name}`}
+        description={`Locataire ID: ${selectedOrg?.id}`}
+      >
+        {selectedOrg && (
+          <div className="space-y-4">
+            <Select
+              label="Statut de l'Abonnement SaaS"
+              defaultValue={selectedOrg.subscription_status || 'active'}
+              id="sub_status_select"
+            >
+              <option value="active">Actif (Paiements à jour)</option>
+              <option value="trialing">Période d&apos;Essai Pro</option>
+              <option value="past_due">En Souffrance (Past Due)</option>
+              <option value="canceled">Résilié / Suspendu</option>
+            </Select>
+
+            <Select
+              label="Forfait Associé"
+              defaultValue={selectedOrg.plan_id || 'starter'}
+              id="plan_id_select"
+            >
+              <option value="starter">Starter (1 500 DZD / mois)</option>
+              <option value="pro">Pro (4 500 DZD / mois)</option>
+              <option value="enterprise">Enterprise (12 000 DZD / mois)</option>
+            </Select>
+
+            <div className="flex gap-2.5 pt-3">
+              <Button
+                className="flex-1"
+                isLoading={actionLoadingId === selectedOrg.id}
+                onClick={() => {
+                  const statusEl = document.getElementById('sub_status_select') as HTMLSelectElement;
+                  const planEl = document.getElementById('plan_id_select') as HTMLSelectElement;
+                  handleUpdateOrg(selectedOrg.id, {
+                    subscription_status: statusEl?.value,
+                    plan_id: planEl?.value,
+                  });
+                }}
               >
-                ✕
-              </button>
-            </div>
-
-            <div className="space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">
-                  Statut de l&apos;Abonnement
-                </label>
-                <div className="grid grid-cols-3 gap-2">
-                  {['active', 'trialing', 'past_due'].map((st) => (
-                    <button
-                      key={st}
-                      onClick={() => handleUpdateOrg(selectedOrg.id, { subscription_status: st })}
-                      disabled={actionLoadingId === selectedOrg.id}
-                      className={`py-2 px-3 rounded-xl text-xs font-bold capitalize border transition ${
-                        selectedOrg.subscription_status === st
-                          ? 'bg-blue-600 border-blue-500 text-white'
-                          : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-slate-200'
-                      }`}
-                    >
-                      {st === 'trialing' ? 'Essai' : st === 'past_due' ? 'En Retard' : 'Actif'}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">
-                  Actions Administratives Rapides
-                </label>
-                <div className="flex flex-col gap-2">
-                  <button
-                    onClick={() => handleUpdateOrg(selectedOrg.id, { extend_trial_days: 14 })}
-                    disabled={actionLoadingId === selectedOrg.id}
-                    className="w-full py-2.5 px-4 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition"
-                  >
-                    <span>+ Prolongation Essai Gratuit (+14 jours)</span>
-                  </button>
-
-                  <button
-                    onClick={() => handleUpdateOrg(selectedOrg.id, { subscription_status: 'active' })}
-                    disabled={actionLoadingId === selectedOrg.id}
-                    className="w-full py-2.5 px-4 bg-emerald-600/20 border border-emerald-500/30 hover:bg-emerald-600/30 text-emerald-400 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition"
-                  >
-                    <span>✓ Activer Manuellement (Paiement Reçu Hors Ligne)</span>
-                  </button>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">
-                  Modifier le Forfait
-                </label>
-                <div className="grid grid-cols-3 gap-2">
-                  {['starter', 'pro', 'enterprise'].map((slug) => (
-                    <button
-                      key={slug}
-                      onClick={() => handleUpdateOrg(selectedOrg.id, { plan_slug: slug })}
-                      disabled={actionLoadingId === selectedOrg.id}
-                      className={`py-2 px-3 rounded-xl text-xs font-bold capitalize border transition ${
-                        selectedOrg.plan_slug === slug
-                          ? 'bg-amber-600 border-amber-500 text-white'
-                          : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-slate-200'
-                      }`}
-                    >
-                      {slug}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            <div className="border-t border-slate-800 pt-4 flex justify-end">
-              <button
-                onClick={() => setSelectedOrg(null)}
-                className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-semibold"
-              >
+                Appliquer les Modifications
+              </Button>
+              <Button variant="secondary" onClick={() => setSelectedOrg(null)} className="flex-1">
                 Fermer
-              </button>
+              </Button>
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </Modal>
     </div>
   );
 }

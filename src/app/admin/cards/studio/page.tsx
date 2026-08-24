@@ -2,6 +2,17 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import {
+  PageHeader,
+  Card,
+  CardHeader,
+  CardTitle,
+  CardContent,
+  Badge,
+  Button,
+  Input,
+  Spinner,
+} from '@/components/ui';
 
 interface CardDesign {
   id?: string;
@@ -103,14 +114,12 @@ export default function CardStudioPage() {
   const fetchInitialData = async () => {
     try {
       setLoading(true);
-      // 1. Fetch organization plan details to get studioTier
       const planRes = await fetch('/api/billing');
       if (planRes.ok) {
         const planData = await planRes.json();
         setStudioTier(planData?.details?.plan?.cardStudioTier || 'full');
       }
 
-      // 2. Fetch existing designs
       const res = await fetch('/api/cards/designs');
       if (res.ok) {
         const list = await res.json();
@@ -200,8 +209,9 @@ export default function CardStudioPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-3">
+        <Spinner size="lg" />
+        <p className="text-xs text-text-muted">Chargement du Studio PVC...</p>
       </div>
     );
   }
@@ -209,160 +219,119 @@ export default function CardStudioPage() {
   const isReadOnly = currentDesign.status === 'submitted' || currentDesign.status === 'approved';
   const isCustomDisabled = studioTier === 'template';
 
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'approved':
+        return <Badge variant="success">Validé pour impression</Badge>;
+      case 'submitted':
+        return <Badge variant="info" pulse>En validation usine</Badge>;
+      case 'rejected':
+        return <Badge variant="danger">Refusé</Badge>;
+      default:
+        return <Badge variant="neutral">Brouillon</Badge>;
+    }
+  };
+
   return (
-    <div className="space-y-8 font-sans">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <div className="flex items-center gap-3">
-            <h1 className="text-2xl font-black text-slate-100 tracking-tight">Studio Design Cartes PVC (CR-80)</h1>
-            <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold uppercase tracking-wider border ${
-              currentDesign.status === 'approved'
-                ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
-                : currentDesign.status === 'submitted'
-                ? 'bg-blue-500/10 text-blue-400 border-blue-500/20'
-                : currentDesign.status === 'rejected'
-                ? 'bg-red-500/10 text-red-400 border-red-500/20'
-                : 'bg-slate-800 text-slate-400 border-slate-700'
-            }`}>
-              {currentDesign.status === 'submitted'
-                ? 'En cours de validation'
-                : currentDesign.status === 'approved'
-                ? 'Validé pour impression'
-                : currentDesign.status === 'rejected'
-                ? 'Refusé'
-                : 'Brouillon'}
-            </span>
+    <div className="space-y-8 max-w-7xl mx-auto pb-16 font-sans">
+      <PageHeader
+        title="Studio Design Cartes PVC (Format CR-80)"
+        subtitle="Personnalisation physique haute fidélité (85.6mm × 53.98mm à 300 DPI) pour vos cartes d'entretien connectées"
+        breadcrumbs={[
+          { label: 'Tableau de bord', href: '/admin' },
+          { label: 'Cartes PVC', href: '/admin/cards' },
+          { label: 'Studio Graphique' },
+        ]}
+        actions={
+          <div className="flex items-center gap-2.5 flex-wrap">
+            {getStatusBadge(currentDesign.status)}
+
+            {!isReadOnly && (
+              <>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={handleSave}
+                  isLoading={saving}
+                >
+                  Enregistrer Brouillon
+                </Button>
+
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={handleSubmitForReview}
+                  isLoading={submitting}
+                >
+                  Soumettre pour Production
+                </Button>
+              </>
+            )}
           </div>
-          <p className="text-sm text-slate-400 mt-1">
-            Personnalisez le format physique 85.6mm × 53.98mm (300 DPI) pour vos cartes d&apos;identité véhicule connectées.
-          </p>
-        </div>
+        }
+      />
 
-        <div className="flex items-center gap-3">
-          <Link
-            href="/admin/cards"
-            className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold transition"
-          >
-            ← Retour aux Cartes
-          </Link>
-
-          {!isReadOnly && (
-            <>
-              <button
-                onClick={handleSave}
-                disabled={saving}
-                className="px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-100 text-xs font-bold transition disabled:opacity-50"
-              >
-                {saving ? 'Enregistrement...' : 'Enregistrer Brouillon'}
-              </button>
-
-              <button
-                onClick={handleSubmitForReview}
-                disabled={submitting}
-                className="px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold shadow-lg shadow-blue-600/20 transition disabled:opacity-50"
-              >
-                {submitting ? 'Soumission...' : 'Soumettre pour Impression'}
-              </button>
-            </>
-          )}
-        </div>
-      </div>
-
-      {/* Notifications */}
       {error && (
-        <div className="p-4 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 text-sm flex items-center gap-3">
-          <svg className="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-          </svg>
-          <span>{error}</span>
+        <div className="p-4 rounded-xl bg-danger/10 border border-danger/25 text-danger text-xs font-semibold">
+          {error}
         </div>
       )}
-
       {success && (
-        <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-sm flex items-center gap-3">
-          <svg className="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-          </svg>
-          <span>{success}</span>
+        <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 text-xs font-semibold">
+          {success}
         </div>
       )}
 
       {currentDesign.status === 'rejected' && currentDesign.rejection_reason && (
-        <div className="p-5 rounded-2xl bg-red-500/10 border border-red-500/30 text-red-300 text-xs shadow-xl">
-          <div className="flex items-center gap-2 font-bold text-red-400 text-sm mb-1">
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            Motif du Refus Technique :
-          </div>
-          <p className="pl-7">{currentDesign.rejection_reason}</p>
-          <p className="pl-7 mt-2 text-slate-400">Veuillez corriger le modèle et soumettre à nouveau pour validation.</p>
-        </div>
-      )}
-
-      {/* Plan Gating Warning for Starter */}
-      {isCustomDisabled && (
-        <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-400 text-xs flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <svg className="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            <span>
-              Votre forfait <strong>Starter</strong> permet de choisir parmi nos styles préréglés officiels. Pour importer votre logo et définir vos couleurs personnalisées, passez au forfait <strong>Pro</strong>.
-            </span>
-          </div>
-          <Link
-            href="/admin/billing"
-            className="px-3.5 py-1.5 rounded-lg bg-amber-500 text-slate-950 font-bold text-xs shrink-0 hover:bg-amber-400 transition"
-          >
-            Débloquer Pro
-          </Link>
+        <div className="p-4 rounded-2xl bg-danger/10 border border-danger/30 text-danger text-xs space-y-1">
+          <span className="font-bold block">Motif du Refus Technique :</span>
+          <p>{currentDesign.rejection_reason}</p>
         </div>
       )}
 
       {/* Main Workspace Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-        {/* Left Column: Interactive CR-80 Canvas (5 cols) */}
+        {/* Left Column: Interactive CR-80 Canvas (6 cols) */}
         <div className="lg:col-span-6 space-y-6">
           {/* Controls Bar */}
-          <div className="flex items-center justify-between bg-slate-900 border border-slate-800 p-3 rounded-2xl">
+          <div className="flex items-center justify-between bg-surface-raised border border-border-subtle p-3 rounded-2xl">
             <div className="flex items-center gap-2">
               <button
+                type="button"
                 onClick={() => setActiveSide('front')}
                 className={`px-4 py-2 rounded-xl text-xs font-bold transition ${
-                  activeSide === 'front' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:text-slate-200'
+                  activeSide === 'front' ? 'bg-accent text-white shadow-md' : 'text-text-muted hover:text-text-primary'
                 }`}
               >
                 Recto (Face Principale)
               </button>
               <button
+                type="button"
                 onClick={() => setActiveSide('back')}
                 className={`px-4 py-2 rounded-xl text-xs font-bold transition ${
-                  activeSide === 'back' ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:text-slate-200'
+                  activeSide === 'back' ? 'bg-accent text-white shadow-md' : 'text-text-muted hover:text-text-primary'
                 }`}
               >
-                Verso (QR & Contact)
+                Verso (QR & Coordonnées)
               </button>
             </div>
 
-            <label className="flex items-center gap-2 text-xs text-slate-400 cursor-pointer select-none">
+            <label className="flex items-center gap-2 text-xs text-text-muted cursor-pointer select-none">
               <input
                 type="checkbox"
                 checked={showSafeMargin}
                 onChange={(e) => setShowSafeMargin(e.target.checked)}
-                className="rounded border-slate-800 bg-slate-950 text-blue-600 focus:ring-0"
+                className="rounded border-border-default bg-surface-base text-accent"
               />
-              <span>Marge de coupe 3mm</span>
+              <span>Marge sûre 3mm</span>
             </label>
           </div>
 
-          {/* CR-80 Physical Card Canvas (85.6mm x 53.98mm ratio = ~1.586) */}
-          <div className="relative w-full aspect-[85.6/53.98] rounded-3xl shadow-2xl overflow-hidden border-2 border-slate-800 transition-all">
-            {/* Safe Margin 3mm Dotted Guide */}
+          {/* CR-80 Physical Card Canvas */}
+          <div className="relative w-full aspect-[85.6/53.98] rounded-3xl shadow-2xl overflow-hidden border-2 border-border-default transition-all">
             {showSafeMargin && (
               <div className="absolute inset-3.5 border border-dashed border-cyan-400/40 rounded-2xl pointer-events-none z-30 flex items-start justify-end p-2">
-                <span className="text-[8px] font-mono text-cyan-400/60 uppercase">Zone Sûre (Safe Margin)</span>
+                <span className="text-[8px] font-mono text-cyan-400/60 uppercase">Zone Sûre</span>
               </div>
             )}
 
@@ -375,13 +344,11 @@ export default function CardStudioPage() {
                   color: currentDesign.front_text_color,
                 }}
               >
-                {/* Decorative Accent Graphic */}
                 <div
                   className="absolute top-0 right-0 w-48 h-48 rounded-full blur-3xl opacity-20 pointer-events-none"
                   style={{ backgroundColor: currentDesign.front_accent_color }}
-                ></div>
+                />
 
-                {/* Top: Logo & Smart Chip Badge */}
                 <div className="flex items-start justify-between z-10">
                   <div className="flex items-center gap-3">
                     {currentDesign.front_logo_url ? (
@@ -408,7 +375,6 @@ export default function CardStudioPage() {
                     </div>
                   </div>
 
-                  {/* Metallic Contactless Chip Visual */}
                   <div className="w-11 h-8 rounded-lg bg-gradient-to-tr from-amber-600 via-amber-400 to-amber-200 border border-amber-300 shadow-inner flex items-center justify-center">
                     <div className="w-6 h-5 border border-amber-700/50 rounded flex items-center justify-center">
                       <div className="w-2 h-2 bg-amber-700/40 rounded-full"></div>
@@ -416,7 +382,6 @@ export default function CardStudioPage() {
                   </div>
                 </div>
 
-                {/* Bottom: NFC Icon & Vehicle Identity Badge */}
                 <div className="flex items-end justify-between z-10">
                   <div>
                     <span className="text-[9px] font-mono opacity-60 uppercase tracking-widest block">
@@ -428,9 +393,6 @@ export default function CardStudioPage() {
                   </div>
 
                   <div className="flex items-center gap-2">
-                    <svg className="w-6 h-6 opacity-75" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                    </svg>
                     <span className="text-[10px] font-bold uppercase tracking-wider">NFC Connecté</span>
                   </div>
                 </div>
@@ -446,20 +408,19 @@ export default function CardStudioPage() {
                   color: currentDesign.back_text_color,
                 }}
               >
-                {/* Left Side: Contact Info & Emergency Phone */}
                 <div className="w-[58%] h-full flex flex-col justify-between z-10">
                   <div>
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-text-muted block mb-1">
                       Scannez pour accéder à l&apos;historique
                     </span>
                     <p className="text-[9px] opacity-80 leading-relaxed">
-                      {currentDesign.back_address || 'Adresse de l’atelier et localisation GPS.'}
+                      {currentDesign.back_address || 'Adresse de l’atelier et localisation.'}
                     </p>
                   </div>
 
                   <div>
                     <div className="text-[9px] font-semibold opacity-75">Tél. Atelier & RDV :</div>
-                    <div className="text-sm font-mono font-bold text-slate-100">
+                    <div className="text-sm font-mono font-bold">
                       {currentDesign.back_contact_phone || '0550 00 00 00'}
                     </div>
                     {currentDesign.back_emergency_text && (
@@ -469,35 +430,32 @@ export default function CardStudioPage() {
                     )}
                   </div>
 
-                  {/* White-Label Footer or Powered by Platform */}
                   <div className="text-[8px] opacity-50 font-mono">
-                    {currentDesign.is_white_label ? 'CERTIFIED SMART VEHICLE' : 'POWERED BY GARAGE PRO SAAS'}
+                    {currentDesign.is_white_label ? 'CERTIFIED SMART VEHICLE' : 'POWERED BY GARAGE PRO'}
                   </div>
                 </div>
 
-                {/* Right Side: Guaranteed Scannable QR Code Placeholder (High Contrast) */}
                 <div className="w-[38%] flex flex-col items-center justify-center z-10">
-                  <div className="w-28 h-28 bg-white p-2 rounded-2xl shadow-xl flex items-center justify-center">
-                    {/* High contrast vector QR placeholder */}
+                  <div className="w-24 h-24 bg-white p-2 rounded-2xl shadow-xl flex items-center justify-center">
                     <div className="w-full h-full bg-slate-900 rounded-lg p-1.5 flex flex-col justify-between">
                       <div className="flex justify-between">
-                        <div className="w-6 h-6 border-2 border-white rounded flex items-center justify-center">
-                          <div className="w-2 h-2 bg-white"></div>
+                        <div className="w-4 h-4 border-2 border-white rounded flex items-center justify-center">
+                          <div className="w-1.5 h-1.5 bg-white"></div>
                         </div>
-                        <div className="w-6 h-6 border-2 border-white rounded flex items-center justify-center">
-                          <div className="w-2 h-2 bg-white"></div>
+                        <div className="w-4 h-4 border-2 border-white rounded flex items-center justify-center">
+                          <div className="w-1.5 h-1.5 bg-white"></div>
                         </div>
                       </div>
                       <div className="flex justify-between items-end">
-                        <div className="w-6 h-6 border-2 border-white rounded flex items-center justify-center">
-                          <div className="w-2 h-2 bg-white"></div>
+                        <div className="w-4 h-4 border-2 border-white rounded flex items-center justify-center">
+                          <div className="w-1.5 h-1.5 bg-white"></div>
                         </div>
-                        <div className="text-[6px] text-white font-mono font-bold">QR PASS</div>
+                        <div className="text-[5px] text-white font-mono font-bold">QR PASS</div>
                       </div>
                     </div>
                   </div>
-                  <span className="text-[8px] font-mono text-slate-400 mt-1.5 uppercase tracking-wider">
-                    Jeton Unique Véhicule
+                  <span className="text-[8px] font-mono text-text-muted mt-1.5 uppercase tracking-wider">
+                    Jeton Unique
                   </span>
                 </div>
               </div>
@@ -505,170 +463,96 @@ export default function CardStudioPage() {
           </div>
         </div>
 
-        {/* Right Column: Customizer Controls (6 cols) */}
+        {/* Right Column: Controls (6 cols) */}
         <div className="lg:col-span-6 space-y-6">
-          {/* Presets Section */}
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl">
-            <h3 className="text-sm font-bold text-slate-100 uppercase tracking-wider mb-4 flex items-center gap-2">
-              <svg className="w-4 h-4 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
-              </svg>
-              1. Styles & Préréglages Impression (300 DPI)
-            </h3>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              {PRESETS.map((preset) => {
-                const selected = currentDesign.layout_preset === preset.id;
-                return (
-                  <button
-                    key={preset.id}
-                    disabled={isReadOnly}
-                    onClick={() => handleApplyPreset(preset)}
-                    className={`p-3 rounded-xl border text-left flex items-center justify-between transition ${
-                      selected
-                        ? 'border-blue-500 bg-blue-500/10 text-white'
-                        : 'border-slate-800 bg-slate-950/60 text-slate-400 hover:border-slate-700'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2.5">
-                      <span
-                        className="w-4 h-4 rounded-full border border-white/20 shrink-0"
-                        style={{ backgroundColor: preset.front_accent }}
-                      ></span>
-                      <span className="text-xs font-bold">{preset.name}</span>
-                    </div>
-                    {selected && <span className="w-2 h-2 rounded-full bg-blue-500"></span>}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Form Fields Customization */}
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-4">
-            <h3 className="text-sm font-bold text-slate-100 uppercase tracking-wider mb-2 flex items-center gap-2">
-              <svg className="w-4 h-4 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-              </svg>
-              2. Textes & Coordonnées Imprimées
-            </h3>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="sm:col-span-2">
-                <label className="block text-xs font-semibold text-slate-300 mb-1">Nom du Modèle *</label>
-                <input
-                  type="text"
-                  disabled={isReadOnly}
-                  value={currentDesign.name}
-                  onChange={(e) => setCurrentDesign({ ...currentDesign, name: e.target.value })}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-slate-100 focus:outline-none focus:border-blue-500"
-                />
+          {/* Presets */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Styles & Préréglages Graphiques</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {PRESETS.map((preset) => {
+                  const selected = currentDesign.layout_preset === preset.id;
+                  return (
+                    <button
+                      key={preset.id}
+                      type="button"
+                      disabled={isReadOnly}
+                      onClick={() => handleApplyPreset(preset)}
+                      className={`p-3 rounded-xl border text-left flex items-center justify-between transition ${
+                        selected
+                          ? 'border-accent bg-accent/15 text-white shadow-lg shadow-blue-500/10'
+                          : 'border-border-subtle bg-surface-base text-text-muted hover:border-border-default'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <span
+                          className="w-4 h-4 rounded-full border border-white/20 shrink-0"
+                          style={{ backgroundColor: preset.front_accent }}
+                        />
+                        <span className="text-xs font-bold">{preset.name}</span>
+                      </div>
+                      {selected && <span className="w-2 h-2 rounded-full bg-accent"></span>}
+                    </button>
+                  );
+                })}
               </div>
+            </CardContent>
+          </Card>
 
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">Titre Recto (En-tête)</label>
-                <input
-                  type="text"
+          {/* Form Fields */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Textes & Coordonnées Imprimées</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <Input
+                label="Nom du Modèle"
+                required
+                disabled={isReadOnly}
+                value={currentDesign.name}
+                onChange={(e) => setCurrentDesign({ ...currentDesign, name: e.target.value })}
+              />
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <Input
+                  label="En-tête Recto"
                   disabled={isReadOnly}
                   value={currentDesign.front_headline}
                   onChange={(e) => setCurrentDesign({ ...currentDesign, front_headline: e.target.value })}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-slate-100 focus:outline-none focus:border-blue-500"
                 />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">Sous-titre Recto</label>
-                <input
-                  type="text"
+                <Input
+                  label="Sous-titre Recto"
                   disabled={isReadOnly}
                   value={currentDesign.front_subheadline}
                   onChange={(e) => setCurrentDesign({ ...currentDesign, front_subheadline: e.target.value })}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-slate-100 focus:outline-none focus:border-blue-500"
                 />
               </div>
 
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">Téléphone Verso (RDV)</label>
-                <input
-                  type="text"
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <Input
+                  label="Téléphone Verso"
                   disabled={isReadOnly}
                   value={currentDesign.back_contact_phone}
                   onChange={(e) => setCurrentDesign({ ...currentDesign, back_contact_phone: e.target.value })}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-slate-100 focus:outline-none focus:border-blue-500"
                 />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-slate-300 mb-1">Texte Assistance / Urgence</label>
-                <input
-                  type="text"
+                <Input
+                  label="Texte Assistance / Urgence"
                   disabled={isReadOnly}
                   value={currentDesign.back_emergency_text}
                   onChange={(e) => setCurrentDesign({ ...currentDesign, back_emergency_text: e.target.value })}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-slate-100 focus:outline-none focus:border-blue-500"
                 />
               </div>
 
-              <div className="sm:col-span-2">
-                <label className="block text-xs font-semibold text-slate-300 mb-1">Adresse Atelier Imprimée</label>
-                <input
-                  type="text"
-                  disabled={isReadOnly}
-                  value={currentDesign.back_address}
-                  onChange={(e) => setCurrentDesign({ ...currentDesign, back_address: e.target.value })}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-slate-100 focus:outline-none focus:border-blue-500"
-                />
-              </div>
-            </div>
-
-            {/* Custom Colors (Pro & Enterprise) */}
-            {!isCustomDisabled && (
-              <div className="pt-4 border-t border-slate-800">
-                <h4 className="text-xs font-bold text-slate-300 uppercase tracking-wider mb-3">Couleurs Sur-Mesure</h4>
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-[11px] text-slate-400 mb-1">Couleur Fond Recto</label>
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="color"
-                        disabled={isReadOnly}
-                        value={currentDesign.front_bg_color}
-                        onChange={(e) => setCurrentDesign({ ...currentDesign, front_bg_color: e.target.value })}
-                        className="w-8 h-8 rounded-lg bg-transparent border border-slate-800 cursor-pointer"
-                      />
-                      <input
-                        type="text"
-                        disabled={isReadOnly}
-                        value={currentDesign.front_bg_color}
-                        onChange={(e) => setCurrentDesign({ ...currentDesign, front_bg_color: e.target.value })}
-                        className="w-full bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1 text-xs font-mono"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-[11px] text-slate-400 mb-1">Couleur Accent (Ligne/Boutons)</label>
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="color"
-                        disabled={isReadOnly}
-                        value={currentDesign.front_accent_color}
-                        onChange={(e) => setCurrentDesign({ ...currentDesign, front_accent_color: e.target.value })}
-                        className="w-8 h-8 rounded-lg bg-transparent border border-slate-800 cursor-pointer"
-                      />
-                      <input
-                        type="text"
-                        disabled={isReadOnly}
-                        value={currentDesign.front_accent_color}
-                        onChange={(e) => setCurrentDesign({ ...currentDesign, front_accent_color: e.target.value })}
-                        className="w-full bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1 text-xs font-mono"
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
+              <Input
+                label="Adresse Imprimée"
+                disabled={isReadOnly}
+                value={currentDesign.back_address}
+                onChange={(e) => setCurrentDesign({ ...currentDesign, back_address: e.target.value })}
+              />
+            </CardContent>
+          </Card>
         </div>
       </div>
     </div>

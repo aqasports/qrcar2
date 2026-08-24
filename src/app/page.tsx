@@ -1,4 +1,4 @@
-import Link from 'next/link';
+﻿import Link from 'next/link';
 
 export default function HomePage() {
   return (
@@ -7,7 +7,7 @@ export default function HomePage() {
       <div className="fixed top-0 left-1/2 -translate-x-1/2 w-full max-w-7xl h-[500px] bg-gradient-to-b from-blue-600/10 via-slate-900/10 to-transparent blur-3xl pointer-events-none -z-10" />
 
       {/* Top Bar */}
-      <header className="sticky top-0 z-50 backdrop-blur-xl bg-slate-950/85 border-b border-slate-850 px-4 sm:px-8 py-4">
+      <header className="sticky top-0 z-50 backdrop-blur-xl bg-slate-950/85 border-b border-border-subtle px-4 sm:px-8 py-4">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center font-black text-white shadow-lg shadow-blue-500/20 text-sm">

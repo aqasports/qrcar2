@@ -1,5 +1,33 @@
 @import "tailwindcss";
 
+@theme {
+  /* Surfaces */
+  --color-surface-base: #020617;      /* app background */
+  --color-surface-raised: #0f172a;    /* cards, panels */
+  --color-surface-overlay: #1e293b;   /* modals, dropdowns, elevated items */
+  --color-surface-hover: #1e293b;     /* hover state on raised surfaces */
+
+  /* Borders */
+  --color-border-subtle: #1e293b;     /* subtle card borders */
+  --color-border-default: #334155;    /* standard borders */
+
+  /* Text */
+  --color-text-primary: #f8fafc;
+  --color-text-secondary: #cbd5e1;
+  --color-text-muted: #94a3b8;
+  --color-text-disabled: #64748b;
+
+  /* Brand / Accent */
+  --color-accent: #2563eb;
+  --color-accent-hover: #3b82f6;
+
+  /* Semantic status tokens */
+  --color-success: #10b981;
+  --color-warning: #f59e0b;
+  --color-danger: #ef4444;
+  --color-info: #0ea5e9;
+}
+
 @layer base {
   :root {
     --background: #020617;

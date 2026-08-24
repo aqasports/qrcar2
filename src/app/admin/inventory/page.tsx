@@ -2,6 +2,22 @@
 
 import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
+import {
+  PageHeader,
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+  TableLoadingState,
+  TableEmptyState,
+  Modal,
+  Button,
+  Input,
+  Select,
+  Badge,
+} from '@/components/ui';
 
 interface Part {
   id: string;
@@ -45,8 +61,8 @@ export default function InventoryPage() {
   const [partCategory, setPartCategory] = useState('');
   const [partSku, setPartSku] = useState('');
   const [partUnit, setPartUnit] = useState('piece');
-  const [purchasePrice, setPurchasePrice] = useState('10.00');
-  const [salePrice, setSalePrice] = useState('15.00');
+  const [purchasePrice, setPurchasePrice] = useState('1000.00');
+  const [salePrice, setSalePrice] = useState('1500.00');
   const [initialQty, setInitialQty] = useState('0');
   const [minThreshold, setMinThreshold] = useState('5');
   const [partActive, setPartActive] = useState(true);
@@ -107,8 +123,8 @@ export default function InventoryPage() {
     setPartCategory('');
     setPartSku('');
     setPartUnit('piece');
-    setPurchasePrice('10.00');
-    setSalePrice('15.00');
+    setPurchasePrice('1000.00');
+    setSalePrice('1500.00');
     setInitialQty('0');
     setMinThreshold('5');
     setPartActive(true);
@@ -151,42 +167,35 @@ export default function InventoryPage() {
       category: partCategory,
       sku: partSku,
       unit: partUnit,
-      purchase_price: parseFloat(purchasePrice) || 0.00,
-      sale_price: parseFloat(salePrice) || 0.00,
-      min_stock_threshold: parseInt(minThreshold) || 5,
-      active: partActive
+      purchase_price: parseFloat(purchasePrice) || 0,
+      sale_price: parseFloat(salePrice) || 0,
+      min_stock_threshold: parseInt(minThreshold, 10) || 0,
+      active: partActive,
     };
 
     if (!isEditingPart) {
-      payload.quantity_in_stock = parseInt(initialQty) || 0;
+      payload.quantity_in_stock = parseInt(initialQty, 10) || 0;
     }
 
     try {
-      let res;
-      if (isEditingPart) {
-        res = await fetch(`/api/parts/${selectedPartId}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-        });
-      } else {
-        res = await fetch('/api/parts', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-        });
-      }
+      const url = isEditingPart ? `/api/parts/${selectedPartId}` : '/api/parts';
+      const method = isEditingPart ? 'PATCH' : 'POST';
+
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
 
       const data = await res.json();
-
       if (!res.ok) {
-        setCatalogError(data.error || 'Failed to save part catalog file');
+        setCatalogError(data.error || 'Erreur lors de l’enregistrement de la pièce.');
       } else {
         setShowPartModal(false);
         fetchParts(searchQuery);
       }
     } catch (err) {
-      setCatalogError('Network connection failure.');
+      setCatalogError('Erreur de communication avec le serveur.');
     } finally {
       setSavingPart(false);
     }
@@ -198,448 +207,392 @@ export default function InventoryPage() {
     setAdjustError('');
 
     try {
-      const res = await fetch('/api/stock/adjust', {
+      const res = await fetch('/api/stock', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           part_id: adjustPartId,
           type: adjustType,
-          quantity: parseInt(adjustQty),
-          reason: adjustReason
+          quantity: parseInt(adjustQty, 10) || 1,
+          reason: adjustReason || undefined,
         }),
       });
 
       const data = await res.json();
-
       if (!res.ok) {
-        setAdjustError(data.error || 'Failed to apply stock adjustment');
+        setAdjustError(data.error || 'Erreur lors du mouvement de stock.');
       } else {
         setShowAdjustModal(false);
-        fetchParts(searchQuery);
+        if (activeTab === 'catalog') {
+          fetchParts(searchQuery);
+        } else {
+          fetchLedger();
+        }
       }
     } catch (err) {
-      setAdjustError('Communication failure during adjustment saving.');
+      setAdjustError('Erreur de communication avec le serveur.');
     } finally {
       setSavingAdjustment(false);
     }
   };
 
-  if (role === 'technician') {
-    return (
-      <div className="text-red-400 p-8 text-center bg-slate-900 border border-red-500/10 rounded-2xl max-w-xl mx-auto">
-        Access Denied. Inventory administration is restricted to managers and super admins.
-      </div>
-    );
-  }
-
   return (
-    <div className="space-y-6 max-w-6xl">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h2 className="text-2xl font-bold text-slate-100">Inventory & Stock</h2>
-          <p className="text-slate-400 text-sm mt-1">Catalog items, supplier references, and stock movements ledger</p>
-        </div>
-
-        {/* Tab Switcher & Buttons */}
-        <div className="flex flex-wrap items-center gap-3">
-          <div className="flex bg-slate-900 p-1 rounded-xl border border-slate-800">
-            <button
-              onClick={() => setActiveTab('catalog')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
-                activeTab === 'catalog' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-slate-300'
-              }`}
-            >
-              Parts Catalog
-            </button>
-            <button
-              onClick={() => setActiveTab('ledger')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
-                activeTab === 'ledger' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-slate-300'
-              }`}
-            >
-              Stock Ledger
-            </button>
-          </div>
-
-          {activeTab === 'catalog' && (
-            <button
+    <div className="space-y-6 max-w-7xl mx-auto pb-16">
+      <PageHeader
+        title="Stock & Magasin de Pièces"
+        subtitle="Catalogue des références, niveaux d'alerte et journal des mouvements"
+        breadcrumbs={[
+          { label: 'Tableau de bord', href: '/admin' },
+          { label: 'Stock & Pièces' },
+        ]}
+        actions={
+          role !== 'technician' && (
+            <Button
+              variant="primary"
+              size="sm"
               onClick={handleOpenCreatePart}
-              className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2.5 rounded-xl font-semibold text-sm transition duration-150 active:scale-[0.98] shadow-lg shadow-blue-500/10"
+              leftIcon={
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                </svg>
+              }
             >
-              New Part
-            </button>
-          )}
-        </div>
-      </div>
+              Nouvelle Référence
+            </Button>
+          )
+        }
+      />
 
-      {activeTab === 'catalog' ? (
-        <>
-          {/* Search Bar */}
-          <div className="relative">
-            <input
-              type="text"
-              placeholder="Search catalog by name, sku, category..."
+      {/* Tabs & Search */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className="flex items-center gap-2 border-b border-border-subtle pb-px">
+          <button
+            type="button"
+            onClick={() => setActiveTab('catalog')}
+            className={`px-4 py-2.5 text-xs font-bold uppercase tracking-wider border-b-2 transition-all ${
+              activeTab === 'catalog'
+                ? 'border-accent text-white'
+                : 'border-transparent text-text-muted hover:text-text-primary'
+            }`}
+          >
+            Catalogue ({parts.length})
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('ledger')}
+            className={`px-4 py-2.5 text-xs font-bold uppercase tracking-wider border-b-2 transition-all ${
+              activeTab === 'ledger'
+                ? 'border-accent text-white'
+                : 'border-transparent text-text-muted hover:text-text-primary'
+            }`}
+          >
+            Journal des Entrées / Sorties
+          </button>
+        </div>
+
+        {activeTab === 'catalog' && (
+          <div className="max-w-xs w-full">
+            <Input
+              placeholder="Filtrer par nom, référence ou catégorie..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-slate-900 border border-slate-800 focus:border-blue-500 rounded-xl px-4 py-3 text-slate-100 placeholder-slate-500 outline-none transition duration-150 text-sm"
             />
           </div>
+        )}
+      </div>
 
-          {/* Parts list */}
-          <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
+      {/* Main Content */}
+      {activeTab === 'catalog' ? (
+        <Table>
+          <TableHeader>
+            <tr>
+              <TableHead>Référence / SKU</TableHead>
+              <TableHead>Désignation Pièce</TableHead>
+              <TableHead>Catégorie</TableHead>
+              <TableHead className="text-right">Stock Actuel</TableHead>
+              <TableHead className="text-right">Prix d&apos;Achat</TableHead>
+              <TableHead className="text-right">Prix de Vente</TableHead>
+              <TableHead className="text-right">Actions</TableHead>
+            </tr>
+          </TableHeader>
+          <TableBody>
             {loading ? (
-              <div className="p-8 text-center text-slate-500">Loading catalog items...</div>
+              <TableLoadingState colSpan={7} message="Chargement de l'inventaire..." />
             ) : parts.length === 0 ? (
-              <div className="p-8 text-center text-slate-500">No parts found in inventory catalog.</div>
+              <TableEmptyState
+                colSpan={7}
+                title="Aucune pièce trouvée"
+                description="Aucun article ne correspond à votre recherche."
+                action={
+                  role !== 'technician' ? (
+                    <Button variant="primary" size="sm" onClick={handleOpenCreatePart}>
+                      Créer une Première Référence
+                    </Button>
+                  ) : null
+                }
+              />
             ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="border-b border-slate-800 text-slate-400 text-xs font-bold uppercase tracking-wider bg-slate-950/30">
-                      <th className="px-6 py-4">Part Details</th>
-                      <th className="px-6 py-4">SKU / Code</th>
-                      <th className="px-6 py-4">Category</th>
-                      <th className="px-6 py-4 text-right">Purchase Price</th>
-                      <th className="px-6 py-4 text-right">Sale Price</th>
-                      <th className="px-6 py-4 text-center">Stock Level</th>
-                      <th className="px-6 py-4 text-right">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-800/80">
-                    {parts.map((p) => {
-                      const isLowStock = p.quantity_in_stock <= p.min_stock_threshold;
-                      return (
-                        <tr key={p.id} className="hover:bg-slate-850/30 transition duration-100">
-                          <td className="px-6 py-4 text-sm font-semibold text-slate-200">
-                            {p.name}
-                            {!p.active && (
-                              <span className="ml-2 text-[9px] bg-red-500/10 text-red-400 border border-red-500/25 px-1.5 py-0.2 rounded font-bold uppercase">
-                                inactive
-                              </span>
-                            )}
-                          </td>
-                          <td className="px-6 py-4 text-sm font-mono text-slate-300">{p.sku}</td>
-                          <td className="px-6 py-4 text-sm text-slate-400 capitalize">{p.category}</td>
-                          <td className="px-6 py-4 text-sm text-right text-slate-400 font-mono">${Number(p.purchase_price).toFixed(2)}</td>
-                          <td className="px-6 py-4 text-sm text-right text-slate-200 font-bold font-mono">${Number(p.sale_price).toFixed(2)}</td>
-                          <td className="px-6 py-4 text-sm text-center">
-                            <span className={`inline-block font-mono font-bold text-xs px-2.5 py-1 rounded ${
-                              isLowStock
-                                ? 'bg-red-500/10 text-red-400 border border-red-500/20'
-                                : 'bg-slate-950/40 text-slate-300 border border-slate-800'
-                            }`}>
-                              {p.quantity_in_stock} {p.unit}
-                            </span>
-                            {isLowStock && p.active && (
-                              <span className="block text-[8px] text-red-500 font-bold uppercase tracking-wide mt-1">
-                                Under threshold ({p.min_stock_threshold})
-                              </span>
-                            )}
-                          </td>
-                          <td className="px-6 py-4 text-sm text-right space-x-2">
-                            <button
-                              onClick={() => handleOpenAdjust(p)}
-                              className="text-xs font-bold bg-slate-800 hover:bg-slate-750 text-slate-300 border border-slate-700 px-2 py-1 rounded"
-                            >
-                              Adjust Stock
-                            </button>
-                            <button
-                              onClick={() => handleOpenEditPart(p)}
-                              className="text-xs font-bold text-blue-500 hover:text-blue-400"
-                            >
-                              Edit File
-                            </button>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        </>
-      ) : (
-        /* Stock movement ledger log */
-        <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
-          {loading ? (
-            <div className="p-8 text-center text-slate-500">Loading ledger logs...</div>
-          ) : movements.length === 0 ? (
-            <div className="p-8 text-center text-slate-500">No stock movements found in ledger log.</div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="border-b border-slate-800 text-slate-400 text-xs font-bold uppercase tracking-wider bg-slate-950/30">
-                    <th className="px-6 py-4">Timestamp</th>
-                    <th className="px-6 py-4">Catalog Part</th>
-                    <th className="px-6 py-4">SKU</th>
-                    <th className="px-6 py-4">Move Type</th>
-                    <th className="px-6 py-4 text-center">Qty Delta</th>
-                    <th className="px-6 py-4">Logged By</th>
-                    <th className="px-6 py-4">Reason / Notes</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-800/80">
-                  {movements.map((m) => (
-                    <tr key={m.id} className="hover:bg-slate-850/30 transition duration-100 text-sm">
-                      <td className="px-6 py-4 text-slate-400 font-mono text-xs">
-                        {new Date(m.created_at).toLocaleString()}
-                      </td>
-                      <td className="px-6 py-4 font-semibold text-slate-200">{m.part_name}</td>
-                      <td className="px-6 py-4 font-mono text-xs text-slate-300">{m.part_sku}</td>
-                      <td className="px-6 py-4">
-                        <span className={`inline-block text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${
-                          m.type === 'in'
-                            ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-                            : m.type === 'out'
-                            ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                            : 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
-                        }`}>
-                          {m.type}
+              parts.map((p) => {
+                const isLowStock = p.quantity_in_stock <= p.min_stock_threshold;
+                return (
+                  <TableRow key={p.id}>
+                    <TableCell className="font-mono text-xs text-text-muted">
+                      {p.sku}
+                    </TableCell>
+                    <TableCell className="font-bold text-text-primary">
+                      {p.name}
+                    </TableCell>
+                    <TableCell className="text-text-muted capitalize">
+                      {p.category || 'Général'}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="inline-flex items-center gap-1.5 justify-end">
+                        <span className={`font-mono font-bold ${isLowStock ? 'text-rose-400' : 'text-text-primary'}`}>
+                          {p.quantity_in_stock} {p.unit}
                         </span>
-                      </td>
-                      <td className="px-6 py-4 text-center font-mono font-bold text-slate-200">
-                        {m.quantity > 0 && m.type !== 'out' ? `+${m.quantity}` : m.quantity}
-                      </td>
-                      <td className="px-6 py-4 text-slate-400 font-semibold">{m.user_name}</td>
-                      <td className="px-6 py-4 text-slate-300 italic truncate max-w-xs">{m.reason || 'Manual ledger adjust'}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
+                        {isLowStock && (
+                          <Badge variant="danger" size="sm">
+                            Alerte
+                          </Badge>
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-right font-mono text-text-muted">
+                      {p.purchase_price.toLocaleString()} DZD
+                    </TableCell>
+                    <TableCell className="text-right font-mono font-bold text-accent">
+                      {p.sale_price.toLocaleString()} DZD
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-2">
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => handleOpenAdjust(p)}
+                        >
+                          Ajuster
+                        </Button>
+                        {role !== 'technician' && (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleOpenEditPart(p)}
+                          >
+                            Modifier
+                          </Button>
+                        )}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })
+            )}
+          </TableBody>
+        </Table>
+      ) : (
+        <Table>
+          <TableHeader>
+            <tr>
+              <TableHead>Date</TableHead>
+              <TableHead>Type</TableHead>
+              <TableHead>Pièce</TableHead>
+              <TableHead className="text-right">Quantité</TableHead>
+              <TableHead>Motif / Intervention</TableHead>
+              <TableHead>Opérateur</TableHead>
+            </tr>
+          </TableHeader>
+          <TableBody>
+            {loading ? (
+              <TableLoadingState colSpan={6} message="Chargement du journal des mouvements..." />
+            ) : movements.length === 0 ? (
+              <TableEmptyState
+                colSpan={6}
+                title="Aucun mouvement de stock"
+                description="Le journal ne contient encore aucune entrée ou sortie de marchandise."
+              />
+            ) : (
+              movements.map((m) => (
+                <TableRow key={m.id}>
+                  <TableCell className="text-text-muted whitespace-nowrap">
+                    {new Date(m.created_at).toLocaleString('fr-FR')}
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant={m.type === 'in' ? 'success' : m.type === 'out' ? 'danger' : 'info'}>
+                      {m.type === 'in' ? 'Entrée' : m.type === 'out' ? 'Sortie' : 'Ajustement'}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="font-bold text-text-primary">
+                    {m.part_name} <span className="font-mono text-xs text-text-muted">[{m.part_sku}]</span>
+                  </TableCell>
+                  <TableCell className={`text-right font-mono font-bold ${m.type === 'in' ? 'text-emerald-400' : 'text-rose-400'}`}>
+                    {m.type === 'in' ? `+${m.quantity}` : `-${m.quantity}`}
+                  </TableCell>
+                  <TableCell className="text-text-secondary text-xs">
+                    {m.reason || 'Mouvement standard'}
+                  </TableCell>
+                  <TableCell className="text-text-muted text-xs">
+                    {m.user_name || 'Système'}
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
       )}
 
       {/* Part Create/Edit Modal */}
-      {showPartModal && (
-        <div className="fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-full max-w-lg bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden p-6 relative">
-            <h3 className="text-xl font-bold text-slate-100 mb-4">
-              {isEditingPart ? 'Edit Catalog Part' : 'Add Catalog Item'}
-            </h3>
+      <Modal
+        isOpen={showPartModal}
+        onClose={() => setShowPartModal(false)}
+        title={isEditingPart ? 'Modifier la Référence Pièce' : 'Nouvelle Référence au Catalogue'}
+        description="Renseignez les détails techniques, le conditionnement et les tarifs de l'article."
+        size="lg"
+      >
+        <form onSubmit={handleSavePart} className="space-y-4">
+          {catalogError && (
+            <div className="p-3 rounded-xl bg-danger/10 border border-danger/25 text-danger text-xs font-semibold">
+              {catalogError}
+            </div>
+          )}
 
-            {catalogError && (
-              <div className="mb-4 p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-xs">
-                {catalogError}
-              </div>
-            )}
-
-            <form onSubmit={handleSavePart} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-slate-400 text-xs font-bold uppercase tracking-wider mb-2">Part Name</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. Brake Pad Kit"
-                    value={partName}
-                    onChange={(e) => setPartName(e.target.value)}
-                    className="w-full bg-slate-950/80 border border-slate-800 focus:border-blue-500 rounded-xl px-4 py-2.5 text-slate-200 outline-none transition text-sm"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-slate-400 text-xs font-bold uppercase tracking-wider mb-2">Category</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. brakes, engine, filter"
-                    value={partCategory}
-                    onChange={(e) => setPartCategory(e.target.value)}
-                    className="w-full bg-slate-950/80 border border-slate-800 focus:border-blue-500 rounded-xl px-4 py-2.5 text-slate-200 outline-none transition text-sm"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-slate-400 text-xs font-bold uppercase tracking-wider mb-2">SKU Code</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. BRK-88910"
-                    value={partSku}
-                    onChange={(e) => setPartSku(e.target.value)}
-                    className="w-full bg-slate-950/80 border border-slate-800 focus:border-blue-500 rounded-xl px-4 py-2.5 text-slate-200 outline-none transition text-sm font-mono"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-slate-400 text-xs font-bold uppercase tracking-wider mb-2">Unit</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. piece, liter, set"
-                    value={partUnit}
-                    onChange={(e) => setPartUnit(e.target.value)}
-                    className="w-full bg-slate-950/80 border border-slate-800 focus:border-blue-500 rounded-xl px-4 py-2.5 text-slate-200 outline-none transition text-sm"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-slate-400 text-xs font-bold uppercase tracking-wider mb-2">Purchase Price ($)</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    required
-                    value={purchasePrice}
-                    onChange={(e) => setPurchasePrice(e.target.value)}
-                    className="w-full bg-slate-950/80 border border-slate-800 focus:border-blue-500 rounded-xl px-4 py-2.5 text-slate-200 outline-none transition text-sm font-mono"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-slate-400 text-xs font-bold uppercase tracking-wider mb-2">Sale Price ($)</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    required
-                    value={salePrice}
-                    onChange={(e) => setSalePrice(e.target.value)}
-                    className="w-full bg-slate-950/80 border border-slate-800 focus:border-blue-500 rounded-xl px-4 py-2.5 text-slate-200 outline-none transition text-sm font-mono"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-slate-400 text-xs font-bold uppercase tracking-wider mb-2">Min Stock Threshold</label>
-                  <input
-                    type="number"
-                    required
-                    value={minThreshold}
-                    onChange={(e) => setMinThreshold(e.target.value)}
-                    className="w-full bg-slate-950/80 border border-slate-800 focus:border-blue-500 rounded-xl px-4 py-2.5 text-slate-200 outline-none transition text-sm font-mono"
-                  />
-                </div>
-
-                {!isEditingPart && (
-                  <div>
-                    <label className="block text-slate-400 text-xs font-bold uppercase tracking-wider mb-2">Initial Stock Import</label>
-                    <input
-                      type="number"
-                      required
-                      value={initialQty}
-                      onChange={(e) => setInitialQty(e.target.value)}
-                      className="w-full bg-slate-950/80 border border-slate-800 focus:border-blue-500 rounded-xl px-4 py-2.5 text-slate-200 outline-none transition text-sm font-mono"
-                    />
-                  </div>
-                )}
-              </div>
-
-              {isEditingPart && (
-                <div className="flex items-center gap-2 pt-2">
-                  <input
-                    type="checkbox"
-                    id="partActive"
-                    checked={partActive}
-                    onChange={(e) => setPartActive(e.target.checked)}
-                    className="h-4 w-4 rounded border-slate-800 text-blue-600 bg-slate-950 focus:ring-0 font-mono"
-                  />
-                  <label htmlFor="partActive" className="text-slate-300 text-sm font-semibold cursor-pointer">
-                    Active Catalog Reference (Un-checking soft-deletes the part)
-                  </label>
-                </div>
-              )}
-
-              <div className="flex justify-end gap-3 pt-4 border-t border-slate-800/60 mt-6">
-                <button
-                  type="button"
-                  onClick={() => setShowPartModal(false)}
-                  className="px-4 py-2 bg-slate-850 hover:bg-slate-800 border border-slate-850 rounded-xl text-slate-400 hover:text-slate-300 transition text-sm font-semibold"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={savingPart}
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl transition text-sm font-semibold disabled:opacity-50"
-                >
-                  {savingPart ? 'Saving...' : 'Save Part'}
-                </button>
-              </div>
-            </form>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <Input
+              label="Désignation Pièce"
+              required
+              placeholder="ex. Filtre à Huile Purflux"
+              value={partName}
+              onChange={(e) => setPartName(e.target.value)}
+            />
+            <Input
+              label="Référence / SKU"
+              required
+              placeholder="ex. LS932"
+              value={partSku}
+              onChange={(e) => setPartSku(e.target.value)}
+              className="font-mono"
+            />
           </div>
-        </div>
-      )}
 
-      {/* Stock Adjustment Modal */}
-      {showAdjustModal && (
-        <div className="fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden p-6 relative">
-            <h3 className="text-xl font-bold text-slate-100 mb-2">Adjust Inventory Levels</h3>
-            <p className="text-slate-500 text-xs mb-4">Item: <span className="text-slate-300 font-semibold">{adjustPartName}</span></p>
-
-            {adjustError && (
-              <div className="mb-4 p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-xs">
-                {adjustError}
-              </div>
-            )}
-
-            <form onSubmit={handleSaveAdjustment} className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-slate-400 text-xs font-bold uppercase tracking-wider mb-2">Adjustment Type</label>
-                  <select
-                    value={adjustType}
-                    onChange={(e) => setAdjustType(e.target.value as any)}
-                    className="w-full bg-slate-950 border border-slate-800 focus:border-blue-500 rounded-xl px-3 py-2.5 text-slate-200 outline-none text-sm"
-                  >
-                    <option value="in">In (Restock / Add)</option>
-                    <option value="out">Out (Loss / Discard)</option>
-                    <option value="adjustment">Adjustment (Absolute Override)</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-slate-400 text-xs font-bold uppercase tracking-wider mb-2">Quantity</label>
-                  <input
-                    type="number"
-                    required
-                    value={adjustQty}
-                    onChange={(e) => setAdjustQty(e.target.value)}
-                    className="w-full bg-slate-950/80 border border-slate-800 focus:border-blue-500 rounded-xl px-4 py-2.5 text-slate-200 outline-none transition text-sm font-mono"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-slate-400 text-xs font-bold uppercase tracking-wider mb-2">Reason / Comments</label>
-                <textarea
-                  required
-                  placeholder="e.g. Regular supplier restock, damaged packing box, stock audit override"
-                  rows={3}
-                  value={adjustReason}
-                  onChange={(e) => setAdjustReason(e.target.value)}
-                  className="w-full bg-slate-950/80 border border-slate-800 focus:border-blue-500 rounded-xl px-4 py-2.5 text-slate-200 outline-none transition text-sm resize-none"
-                />
-              </div>
-
-              <div className="flex justify-end gap-3 pt-4 border-t border-slate-800/60 mt-6">
-                <button
-                  type="button"
-                  onClick={() => setShowAdjustModal(false)}
-                  className="px-4 py-2 bg-slate-850 hover:bg-slate-800 border border-slate-850 rounded-xl text-slate-400 hover:text-slate-300 transition text-sm font-semibold"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={savingAdjustment}
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl transition text-sm font-semibold disabled:opacity-50"
-                >
-                  {savingAdjustment ? 'Saving...' : 'Apply adjustment'}
-                </button>
-              </div>
-            </form>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <Input
+              label="Catégorie"
+              placeholder="ex. Filtration, Freinage, Allumage"
+              value={partCategory}
+              onChange={(e) => setPartCategory(e.target.value)}
+            />
+            <Select
+              label="Unité de Compte"
+              value={partUnit}
+              onChange={(e) => setPartUnit(e.target.value)}
+            >
+              <option value="piece">Pièce (u)</option>
+              <option value="liter">Litre (L)</option>
+              <option value="set">Jeu / Kit (set)</option>
+              <option value="kg">Kilogramme (kg)</option>
+            </Select>
           </div>
-        </div>
-      )}
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <Input
+              label="Prix d'Achat HT (DZD)"
+              type="number"
+              step="0.01"
+              required
+              value={purchasePrice}
+              onChange={(e) => setPurchasePrice(e.target.value)}
+            />
+            <Input
+              label="Prix de Vente TTC (DZD)"
+              type="number"
+              step="0.01"
+              required
+              value={salePrice}
+              onChange={(e) => setSalePrice(e.target.value)}
+            />
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {!isEditingPart && (
+              <Input
+                label="Stock Initial Disponible"
+                type="number"
+                required
+                value={initialQty}
+                onChange={(e) => setInitialQty(e.target.value)}
+              />
+            )}
+            <Input
+              label="Seuil d'Alerte Réapprovisionnement"
+              type="number"
+              required
+              value={minThreshold}
+              onChange={(e) => setMinThreshold(e.target.value)}
+            />
+          </div>
+
+          <div className="flex gap-2.5 pt-3">
+            <Button type="submit" isLoading={savingPart} className="flex-1">
+              {isEditingPart ? 'Enregistrer les Modifications' : 'Créer la Référence'}
+            </Button>
+            <Button type="button" variant="secondary" onClick={() => setShowPartModal(false)} className="flex-1">
+              Annuler
+            </Button>
+          </div>
+        </form>
+      </Modal>
+
+      {/* Adjust Stock Modal */}
+      <Modal
+        isOpen={showAdjustModal}
+        onClose={() => setShowAdjustModal(false)}
+        title="Mouvement Manuel de Stock"
+        description={`Enregistrer une entrée ou sortie de stock pour : ${adjustPartName}`}
+      >
+        <form onSubmit={handleSaveAdjustment} className="space-y-4">
+          {adjustError && (
+            <div className="p-3 rounded-xl bg-danger/10 border border-danger/25 text-danger text-xs font-semibold">
+              {adjustError}
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <Select
+              label="Type de Mouvement"
+              value={adjustType}
+              onChange={(e) => setAdjustType(e.target.value as any)}
+            >
+              <option value="in">Entrée / Réception Fournisseur</option>
+              <option value="out">Sortie / Dépréciation</option>
+              <option value="adjustment">Régularisation d&apos;Inventaire</option>
+            </Select>
+
+            <Input
+              label="Quantité"
+              type="number"
+              min="1"
+              required
+              value={adjustQty}
+              onChange={(e) => setAdjustQty(e.target.value)}
+            />
+          </div>
+
+          <Input
+            label="Motif / Commentaire (Optionnel)"
+            placeholder="ex. Facture Fournisseur #1283 ou Ajustement inventaire"
+            value={adjustReason}
+            onChange={(e) => setAdjustReason(e.target.value)}
+          />
+
+          <div className="flex gap-2.5 pt-3">
+            <Button type="submit" isLoading={savingAdjustment} className="flex-1">
+              Confirmer le Mouvement
+            </Button>
+            <Button type="button" variant="secondary" onClick={() => setShowAdjustModal(false)} className="flex-1">
+              Annuler
+            </Button>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 }

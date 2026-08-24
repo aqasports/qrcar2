@@ -741,7 +741,7 @@ export function ClientPortalView({
 
                       {/* Client Visible Notes */}
                       {act.client_visible_notes && (
-                        <div className="p-3 rounded-xl bg-slate-950/60 border border-slate-850 text-xs text-slate-400 space-y-1">
+                        <div className="p-3 rounded-xl bg-slate-950/60 border border-border-subtle text-xs text-slate-400 space-y-1">
                           <span className="font-bold text-slate-300 block">{t.history.notes}</span>
                           <p>{act.client_visible_notes}</p>
                         </div>
@@ -934,7 +934,7 @@ export function ClientPortalView({
                         </span>
                       </div>
                       {app.garage_response && (
-                        <p className="text-xs text-slate-300 bg-slate-900/80 p-2.5 rounded-lg border border-slate-850">
+                        <p className="text-xs text-slate-300 bg-slate-900/80 p-2.5 rounded-lg border border-border-subtle">
                           <span className="font-bold text-blue-400">Message Atelier :</span> {app.garage_response}
                         </p>
                       )}
@@ -959,23 +959,23 @@ export function ClientPortalView({
               </h2>
 
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs">
-                <div className="p-3 rounded-xl bg-slate-950 border border-slate-850">
+                <div className="p-3 rounded-xl bg-slate-950 border border-border-subtle">
                   <span className="text-slate-500 font-bold block">{t.engine}</span>
                   <span className="text-slate-200 font-semibold block mt-0.5">{vehicle.engine_spec || 'Standard'}</span>
                 </div>
-                <div className="p-3 rounded-xl bg-slate-950 border border-slate-850">
+                <div className="p-3 rounded-xl bg-slate-950 border border-border-subtle">
                   <span className="text-slate-500 font-bold block">{t.fuel}</span>
                   <span className="text-slate-200 font-semibold block mt-0.5">{vehicle.fuel_type || 'Diesel'}</span>
                 </div>
-                <div className="p-3 rounded-xl bg-slate-950 border border-slate-850">
+                <div className="p-3 rounded-xl bg-slate-950 border border-border-subtle">
                   <span className="text-slate-500 font-bold block">{t.transmission}</span>
                   <span className="text-slate-200 font-semibold block mt-0.5">{vehicle.transmission || 'Manuelle'}</span>
                 </div>
-                <div className="p-3 rounded-xl bg-slate-950 border border-slate-850">
+                <div className="p-3 rounded-xl bg-slate-950 border border-border-subtle">
                   <span className="text-slate-500 font-bold block">{t.oil}</span>
                   <span className="text-blue-400 font-semibold font-mono block mt-0.5">{vehicle.oil_type || '5W-30 ACEA C3'}</span>
                 </div>
-                <div className="p-3 rounded-xl bg-slate-950 border border-slate-850 col-span-2 sm:col-span-1">
+                <div className="p-3 rounded-xl bg-slate-950 border border-border-subtle col-span-2 sm:col-span-1">
                   <span className="text-slate-500 font-bold block">{t.tires}</span>
                   <span className="text-slate-200 font-semibold font-mono block mt-0.5">{vehicle.tire_size || '—'}</span>
                 </div>
@@ -1000,7 +1000,7 @@ export function ClientPortalView({
                   { title: t.guide.timingBeltInterval, desc: t.guide.timingBeltDesc, badge: '80 000 - 120 000 km' },
                   { title: t.guide.ctInterval, desc: t.guide.ctDesc, badge: 'Tous les 2 ans' },
                 ].map((item, idx) => (
-                  <div key={idx} className="p-3.5 rounded-xl bg-slate-950 border border-slate-850 flex items-start justify-between gap-3">
+                  <div key={idx} className="p-3.5 rounded-xl bg-slate-950 border border-border-subtle flex items-start justify-between gap-3">
                     <div>
                       <h4 className="font-bold text-slate-200">{item.title}</h4>
                       <p className="text-slate-400 text-[11px] mt-0.5">{item.desc}</p>

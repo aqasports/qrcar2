@@ -1,7 +1,21 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import Link from 'next/link';
 import { useSession } from 'next-auth/react';
+import {
+  PageHeader,
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+  TableLoadingState,
+  TableEmptyState,
+  Badge,
+  Button,
+} from '@/components/ui';
 
 interface Invoice {
   id: string;
@@ -56,125 +70,137 @@ export default function InvoicesPage() {
 
       if (!res.ok) {
         const data = await res.json();
-        alert(data.error || 'Failed to update invoice status');
+        alert(data.error || 'Impossible de mettre à jour le statut de la facture');
       } else {
         fetchInvoices();
       }
     } catch (err) {
-      alert('Communication failure during status update.');
+      alert('Erreur réseau lors de la mise à jour.');
     } finally {
       setUpdatingId('');
     }
   };
 
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'paid':
+        return <Badge variant="success">Réglée</Badge>;
+      case 'issued':
+        return <Badge variant="warning">Émise / En attente</Badge>;
+      case 'draft':
+        return <Badge variant="neutral">Brouillon</Badge>;
+      case 'cancelled':
+        return <Badge variant="danger">Annulée</Badge>;
+      default:
+        return <Badge variant="neutral">{status}</Badge>;
+    }
+  };
+
   if (role === 'technician') {
     return (
-      <div className="text-red-400 p-8 text-center bg-slate-900 border border-red-500/10 rounded-2xl max-w-xl mx-auto">
-        Access Denied. Invoicing and billing is restricted to managers and super admins.
+      <div className="text-danger p-8 text-center bg-surface-raised border border-danger/20 rounded-2xl max-w-xl mx-auto space-y-2">
+        <h3 className="font-bold">Accès Restreint</h3>
+        <p className="text-xs text-text-muted">
+          La gestion de la facturation et des règlements est réservée aux chefs d&apos;atelier et administrateurs.
+        </p>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6 max-w-6xl">
-      <div>
-        <h2 className="text-2xl font-bold text-slate-100">Invoices</h2>
-        <p className="text-slate-400 text-sm mt-1">Manage mechanical service billing, PDF invoices, and payments ledger</p>
-      </div>
+    <div className="space-y-6 max-w-7xl mx-auto pb-16">
+      <PageHeader
+        title="Facturation & Règlements"
+        subtitle="Suivi des factures de réparations, états d'encaissement et exports comptables"
+        breadcrumbs={[
+          { label: 'Tableau de bord', href: '/admin' },
+          { label: 'Factures' },
+        ]}
+      />
 
       {/* Invoices Table */}
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
-        {loading ? (
-          <div className="p-8 text-center text-slate-500">Loading billing invoices...</div>
-        ) : invoices.length === 0 ? (
-          <div className="p-8 text-center text-slate-500">No invoices generated yet.</div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="border-b border-slate-800 text-slate-400 text-xs font-bold uppercase tracking-wider bg-slate-950/30">
-                  <th className="px-6 py-4">Invoice Number</th>
-                  <th className="px-6 py-4">Client / Plate</th>
-                  <th className="px-6 py-4">Service Type</th>
-                  <th className="px-6 py-4 text-right">Subtotal</th>
-                  <th className="px-6 py-4 text-right">Tax (19%)</th>
-                  <th className="px-6 py-4 text-right">Total Due</th>
-                  <th className="px-6 py-4">Billing Status</th>
-                  <th className="px-6 py-4 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-800/80">
-                {invoices.map((inv) => (
-                  <tr key={inv.id} className="hover:bg-slate-850/30 transition duration-100">
-                    <td className="px-6 py-4 text-sm font-mono font-bold text-slate-200">
-                      {inv.invoice_number}
-                    </td>
-                    <td className="px-6 py-4 text-sm">
-                      <span className="font-semibold text-slate-300 block">{inv.client_name}</span>
-                      <span className="text-slate-500 font-mono text-xs block mt-0.5">{inv.plate_number}</span>
-                    </td>
-                    <td className="px-6 py-4 text-sm capitalize text-slate-400">{inv.action_type}</td>
-                    <td className="px-6 py-4 text-sm text-right text-slate-400 font-mono">${Number(inv.subtotal).toFixed(2)}</td>
-                    <td className="px-6 py-4 text-sm text-right text-slate-400 font-mono">${Number(inv.tax_amount).toFixed(2)}</td>
-                    <td className="px-6 py-4 text-sm text-right text-slate-200 font-bold font-mono">${Number(inv.total).toFixed(2)}</td>
-                    <td className="px-6 py-4 text-sm">
-                      <span className={`inline-block text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${
-                        inv.status === 'paid'
-                          ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-                          : inv.status === 'issued'
-                          ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
-                          : inv.status === 'cancelled'
-                          ? 'bg-red-500/10 text-red-400 border border-red-500/20'
-                          : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                      }`}>
-                        {inv.status}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-sm text-right space-x-2">
-                      <a
-                        href={`/api/invoices/${inv.id}/download`}
-                        target="_blank"
-                        className="text-xs font-bold bg-slate-800 hover:bg-slate-750 text-slate-300 border border-slate-700 px-2 py-1 rounded transition"
+      <Table>
+        <TableHeader>
+          <tr>
+            <TableHead>Numéro Facture</TableHead>
+            <TableHead>Client & Véhicule</TableHead>
+            <TableHead>Type d&apos;Intervention</TableHead>
+            <TableHead className="text-right">Montant HT</TableHead>
+            <TableHead className="text-right">TVA (19%)</TableHead>
+            <TableHead className="text-right">Total TTC</TableHead>
+            <TableHead>Statut</TableHead>
+            <TableHead className="text-right">Actions</TableHead>
+          </tr>
+        </TableHeader>
+        <TableBody>
+          {loading ? (
+            <TableLoadingState colSpan={8} message="Chargement des factures atelier..." />
+          ) : invoices.length === 0 ? (
+            <TableEmptyState
+              colSpan={8}
+              title="Aucune facture émise"
+              description="Les factures sont générées directement depuis les ordres de réparation terminés."
+              action={
+                <Link href="/admin/actions">
+                  <Button variant="primary" size="sm">
+                    Consulter les Interventions
+                  </Button>
+                </Link>
+              }
+            />
+          ) : (
+            invoices.map((inv) => (
+              <TableRow key={inv.id}>
+                <TableCell className="font-mono font-bold text-text-primary">
+                  {inv.invoice_number}
+                </TableCell>
+                <TableCell>
+                  <span className="font-bold text-text-primary block">{inv.client_name}</span>
+                  <span className="text-text-muted font-mono text-xs block">{inv.plate_number}</span>
+                </TableCell>
+                <TableCell className="capitalize text-text-secondary">
+                  {inv.action_type}
+                </TableCell>
+                <TableCell className="text-right font-mono text-text-muted">
+                  {Number(inv.subtotal).toLocaleString()} DZD
+                </TableCell>
+                <TableCell className="text-right font-mono text-text-muted">
+                  {Number(inv.tax_amount).toLocaleString()} DZD
+                </TableCell>
+                <TableCell className="text-right font-mono font-bold text-accent">
+                  {Number(inv.total).toLocaleString()} DZD
+                </TableCell>
+                <TableCell>{getStatusBadge(inv.status)}</TableCell>
+                <TableCell className="text-right">
+                  <div className="flex items-center justify-end gap-2">
+                    {inv.status !== 'paid' && (
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        isLoading={updatingId === inv.id}
+                        onClick={() => handleUpdateStatus(inv.id, 'paid')}
                       >
-                        Download PDF
-                      </a>
-
-                      {inv.status === 'draft' && (
-                        <button
-                          onClick={() => handleUpdateStatus(inv.id, 'issued')}
-                          disabled={updatingId === inv.id}
-                          className="text-xs font-bold text-blue-500 hover:text-blue-400"
-                        >
-                          Issue
-                        </button>
-                      )}
-
-                      {inv.status === 'issued' && (
-                        <>
-                          <button
-                            onClick={() => handleUpdateStatus(inv.id, 'paid')}
-                            disabled={updatingId === inv.id}
-                            className="text-xs font-bold text-emerald-500 hover:text-emerald-400"
-                          >
-                            Mark Paid
-                          </button>
-                          <button
-                            onClick={() => handleUpdateStatus(inv.id, 'cancelled')}
-                            disabled={updatingId === inv.id}
-                            className="text-xs font-bold text-red-500 hover:text-red-400"
-                          >
-                            Cancel
-                          </button>
-                        </>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+                        Encaisser
+                      </Button>
+                    )}
+                    <a
+                      href={`/api/invoices/${inv.id}/download`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center text-xs font-bold text-accent hover:text-accent-hover p-1.5 rounded hover:bg-surface-overlay transition-colors"
+                      title="Télécharger PDF"
+                    >
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                    </a>
+                  </div>
+                </TableCell>
+              </TableRow>
+            ))
+          )}
+        </TableBody>
+      </Table>
     </div>
   );
 }

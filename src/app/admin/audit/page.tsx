@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
@@ -76,7 +76,7 @@ export default function AuditLogsPage() {
               </thead>
               <tbody className="divide-y divide-slate-800/80">
                 {logs.map((log) => (
-                  <tr key={log.id} className="hover:bg-slate-850/30 transition duration-100 text-sm">
+                  <tr key={log.id} className="hover:bg-slate-900/30 transition duration-100 text-sm">
                     <td className="px-6 py-4 text-slate-400 font-mono text-xs">
                       {new Date(log.created_at).toLocaleString()}
                     </td>

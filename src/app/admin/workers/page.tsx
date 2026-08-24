@@ -2,6 +2,22 @@
 
 import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
+import {
+  PageHeader,
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+  TableLoadingState,
+  TableEmptyState,
+  Badge,
+  Button,
+  Input,
+  Select,
+  Modal,
+} from '@/components/ui';
 
 interface Worker {
   id: string;
@@ -33,8 +49,8 @@ export default function WorkersPage() {
   const [selectedWorkerId, setSelectedWorkerId] = useState('');
   const [fullName, setFullName] = useState('');
   const [phone, setPhone] = useState('');
-  const [roleInput, setRoleInput] = useState('Technician');
-  const [hourlyRate, setHourlyRate] = useState('25.00');
+  const [roleInput, setRoleInput] = useState('Technicien');
+  const [hourlyRate, setHourlyRate] = useState('1500.00');
   const [linkedUserId, setLinkedUserId] = useState('');
   const [active, setActive] = useState(true);
   const [formError, setFormError] = useState('');
@@ -78,8 +94,8 @@ export default function WorkersPage() {
     setIsEditing(false);
     setFullName('');
     setPhone('');
-    setRoleInput('Technician');
-    setHourlyRate('25.00');
+    setRoleInput('Technicien');
+    setHourlyRate('1500.00');
     setLinkedUserId('');
     setActive(true);
     setFormError('');
@@ -99,7 +115,7 @@ export default function WorkersPage() {
     setShowModal(true);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSaveWorker = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
     setFormError('');
@@ -107,38 +123,32 @@ export default function WorkersPage() {
     const payload = {
       full_name: fullName,
       phone: phone || null,
-      worker_role: roleInput,
-      hourly_rate: parseFloat(hourlyRate) || 0.00,
+      role: roleInput,
+      hourly_rate: parseFloat(hourlyRate) || 0,
       user_id: linkedUserId || null,
-      active: active
+      active,
     };
 
     try {
-      let res;
-      if (isEditing) {
-        res = await fetch(`/api/workers/${selectedWorkerId}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-        });
-      } else {
-        res = await fetch('/api/workers', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-        });
-      }
+      const url = isEditing ? `/api/workers/${selectedWorkerId}` : '/api/workers';
+      const method = isEditing ? 'PATCH' : 'POST';
+
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
 
       const data = await res.json();
 
       if (!res.ok) {
-        setFormError(data.error || 'Failed to save worker record');
+        setFormError(data.error || 'Erreur lors de la sauvegarde');
       } else {
         setShowModal(false);
         fetchWorkers();
       }
     } catch (err) {
-      setFormError('Network communication failure.');
+      setFormError('Erreur de communication avec le serveur.');
     } finally {
       setSubmitting(false);
     }
@@ -146,206 +156,182 @@ export default function WorkersPage() {
 
   if (userRole === 'technician') {
     return (
-      <div className="text-red-400 p-8 text-center bg-slate-900 border border-red-500/10 rounded-2xl max-w-xl mx-auto">
-        Access Denied. Worker administration is restricted to managers and super admins.
+      <div className="text-danger p-8 text-center bg-surface-raised border border-danger/20 rounded-2xl max-w-xl mx-auto space-y-2">
+        <h3 className="font-bold">Accès Restreint</h3>
+        <p className="text-xs text-text-muted">
+          La gestion des techniciens et des taux horaires est réservée aux responsables d&apos;atelier.
+        </p>
       </div>
     );
   }
 
   return (
-    <div className="space-y-6 max-w-6xl">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h2 className="text-2xl font-bold text-slate-100">Workers</h2>
-          <p className="text-slate-400 text-sm mt-1">Manage workshop technicians and labor records</p>
-        </div>
+    <div className="space-y-6 max-w-7xl mx-auto pb-16">
+      <PageHeader
+        title="Équipe & Techniciens Atelier"
+        subtitle="Gestion des collaborateurs, des qualifications et des assignations sur les ordres de réparation"
+        breadcrumbs={[
+          { label: 'Tableau de bord', href: '/admin' },
+          { label: 'Techniciens' },
+        ]}
+        actions={
+          <Button
+            variant="primary"
+            size="sm"
+            onClick={handleOpenCreate}
+            leftIcon={
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+              </svg>
+            }
+          >
+            Nouveau Collaborateur
+          </Button>
+        }
+      />
 
-        <button
-          onClick={handleOpenCreate}
-          className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2.5 rounded-xl font-semibold text-sm transition duration-150 active:scale-[0.98] shadow-lg shadow-blue-500/10"
-        >
-          Add Worker
-        </button>
-      </div>
+      <Table>
+        <TableHeader>
+          <tr>
+            <TableHead>Nom & Prénom</TableHead>
+            <TableHead>Rôle & Spécialité</TableHead>
+            <TableHead>Téléphone</TableHead>
+            <TableHead className="text-right">Taux Horaire</TableHead>
+            <TableHead>Statut</TableHead>
+            <TableHead className="text-right">Action</TableHead>
+          </tr>
+        </TableHeader>
+        <TableBody>
+          {loading ? (
+            <TableLoadingState colSpan={6} message="Chargement de l'équipe..." />
+          ) : workers.length === 0 ? (
+            <TableEmptyState
+              colSpan={6}
+              title="Aucun intervenant enregistré"
+              description="Ajoutez des mécaniciens ou électriciens pour pouvoir les assigner aux interventions."
+              action={
+                <Button variant="primary" size="sm" onClick={handleOpenCreate}>
+                  Ajouter un Premier Technicien
+                </Button>
+              }
+            />
+          ) : (
+            workers.map((w) => (
+              <TableRow key={w.id}>
+                <TableCell className="font-bold text-text-primary">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-surface-overlay border border-border-default flex items-center justify-center font-bold text-xs">
+                      {w.full_name.charAt(0)}
+                    </div>
+                    <span>{w.full_name}</span>
+                  </div>
+                </TableCell>
+                <TableCell className="text-text-secondary">{w.role}</TableCell>
+                <TableCell className="font-mono text-text-muted">{w.phone || '—'}</TableCell>
+                <TableCell className="text-right font-mono font-bold text-accent">
+                  {w.hourly_rate?.toLocaleString()} DZD/h
+                </TableCell>
+                <TableCell>
+                  <Badge variant={w.active ? 'success' : 'neutral'}>
+                    {w.active ? 'Actif' : 'Inactif'}
+                  </Badge>
+                </TableCell>
+                <TableCell className="text-right">
+                  <Button variant="ghost" size="sm" onClick={() => handleOpenEdit(w)}>
+                    Modifier
+                  </Button>
+                </TableCell>
+              </TableRow>
+            ))
+          )}
+        </TableBody>
+      </Table>
 
-      {/* Workers Ledger */}
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
-        {loading ? (
-          <div className="p-8 text-center text-slate-500">Loading worker directory...</div>
-        ) : workers.length === 0 ? (
-          <div className="p-8 text-center text-slate-500">No worker records found.</div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="border-b border-slate-800 text-slate-400 text-xs font-bold uppercase tracking-wider bg-slate-950/30">
-                  <th className="px-6 py-4">Full Name</th>
-                  <th className="px-6 py-4">Phone Number</th>
-                  <th className="px-6 py-4">Role / Title</th>
-                  <th className="px-6 py-4">Hourly Rate</th>
-                  <th className="px-6 py-4">Status</th>
-                  <th className="px-6 py-4">Linked User</th>
-                  <th className="px-6 py-4 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-800/80">
-                {workers.map((w) => (
-                  <tr key={w.id} className="hover:bg-slate-850/30 transition duration-100">
-                    <td className="px-6 py-4 text-sm font-semibold text-slate-200">{w.full_name}</td>
-                    <td className="px-6 py-4 text-sm text-slate-300 font-mono">{w.phone || '—'}</td>
-                    <td className="px-6 py-4 text-sm text-slate-400">{w.role}</td>
-                    <td className="px-6 py-4 text-sm text-slate-300 font-mono">${Number(w.hourly_rate).toFixed(2)}/hr</td>
-                    <td className="px-6 py-4 text-sm">
-                      <span className={`inline-block text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${
-                        w.active
-                          ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-                          : 'bg-red-500/10 text-red-400 border border-red-500/20'
-                      }`}>
-                        {w.active ? 'active' : 'inactive'}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-sm text-slate-400">
-                      {w.user_id ? (
-                        <span className="font-mono text-xs bg-slate-950 border border-slate-800 px-2 py-1 rounded">
-                          {users.find(u => u.id === w.user_id)?.username || 'Linked Account'}
-                        </span>
-                      ) : (
-                        <span className="text-slate-600 italic">None</span>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 text-sm text-right">
-                      <button
-                        onClick={() => handleOpenEdit(w)}
-                        className="text-xs font-bold text-blue-500 hover:text-blue-400 transition"
-                      >
-                        Edit Details
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+      {/* Worker Modal */}
+      <Modal
+        isOpen={showModal}
+        onClose={() => setShowModal(false)}
+        title={isEditing ? 'Modifier la Fiche Collaborateur' : 'Ajouter un Collaborateur'}
+        description="Renseignez l'identité, le rôle atelier et les paramètres de facturation horaire."
+      >
+        <form onSubmit={handleSaveWorker} className="space-y-4">
+          {formError && (
+            <div className="p-3 rounded-xl bg-danger/10 border border-danger/25 text-danger text-xs font-semibold">
+              {formError}
+            </div>
+          )}
+
+          <Input
+            label="Nom & Prénom"
+            required
+            placeholder="ex. Youcef Mansouri"
+            value={fullName}
+            onChange={(e) => setFullName(e.target.value)}
+          />
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <Input
+              label="Téléphone"
+              type="tel"
+              placeholder="ex. 0661 23 45 67"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+            />
+            <Input
+              label="Rôle / Spécialité"
+              required
+              placeholder="ex. Électricien Auto, Chef d'Équipe"
+              value={roleInput}
+              onChange={(e) => setRoleInput(e.target.value)}
+            />
           </div>
-        )}
-      </div>
 
-      {/* Create/Edit Worker Modal */}
-      {showModal && (
-        <div className="fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-sm flex items-center justify-center p-4">
-          <div className="w-full max-w-lg bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden p-6 relative">
-            <h3 className="text-xl font-bold text-slate-100 mb-4">
-              {isEditing ? 'Edit Worker File' : 'Register New Worker'}
-            </h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <Input
+              label="Taux Horaire (DZD/h)"
+              type="number"
+              step="0.01"
+              required
+              value={hourlyRate}
+              onChange={(e) => setHourlyRate(e.target.value)}
+            />
 
-            {formError && (
-              <div className="mb-4 p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-xs">
-                {formError}
-              </div>
-            )}
-
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label className="block text-slate-400 text-xs font-bold uppercase tracking-wider mb-2">Full Name</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. Liam Devine"
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                  className="w-full bg-slate-950/80 border border-slate-800 focus:border-blue-500 rounded-xl px-4 py-2.5 text-slate-200 outline-none transition text-sm"
-                />
-              </div>
-
-              <div>
-                <label className="block text-slate-400 text-xs font-bold uppercase tracking-wider mb-2">Phone Number</label>
-                <input
-                  type="text"
-                  placeholder="e.g. 0550112233"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  className="w-full bg-slate-950/80 border border-slate-800 focus:border-blue-500 rounded-xl px-4 py-2.5 text-slate-200 outline-none transition text-sm font-mono"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-slate-400 text-xs font-bold uppercase tracking-wider mb-2">Role / Title</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. Senior Electrician"
-                    value={roleInput}
-                    onChange={(e) => setRoleInput(e.target.value)}
-                    className="w-full bg-slate-950/80 border border-slate-800 focus:border-blue-500 rounded-xl px-4 py-2.5 text-slate-200 outline-none transition text-sm"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-slate-400 text-xs font-bold uppercase tracking-wider mb-2">Hourly Rate ($)</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    required
-                    value={hourlyRate}
-                    onChange={(e) => setHourlyRate(e.target.value)}
-                    className="w-full bg-slate-950/80 border border-slate-800 focus:border-blue-500 rounded-xl px-4 py-2.5 text-slate-200 outline-none transition text-sm font-mono"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-slate-400 text-xs font-bold uppercase tracking-wider mb-2">
-                  Link Login Account
-                </label>
-                <select
-                  value={linkedUserId}
-                  onChange={(e) => setLinkedUserId(e.target.value)}
-                  className="w-full bg-slate-950/80 border border-slate-800 focus:border-blue-500 rounded-xl px-3 py-2.5 text-slate-200 outline-none text-sm"
-                >
-                  <option value="">-- No linked account (labor only) --</option>
-                  {users.map((u) => (
-                    <option key={u.id} value={u.id}>
-                      {u.username} ({u.role.replace('_', ' ')})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {isEditing && (
-                <div className="flex items-center gap-2 pt-2">
-                  <input
-                    type="checkbox"
-                    id="active"
-                    checked={active}
-                    onChange={(e) => setActive(e.target.checked)}
-                    className="h-4 w-4 rounded border-slate-800 text-blue-600 bg-slate-950 focus:ring-0"
-                  />
-                  <label htmlFor="active" className="text-slate-300 text-sm font-semibold cursor-pointer">
-                    Active Workshop Worker
-                  </label>
-                </div>
-              )}
-
-              <div className="flex justify-end gap-3 pt-4 border-t border-slate-800/60 mt-6">
-                <button
-                  type="button"
-                  onClick={() => setShowModal(false)}
-                  className="px-4 py-2 bg-slate-850 hover:bg-slate-800 border border-slate-850 rounded-xl text-slate-400 hover:text-slate-300 transition text-sm font-semibold"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={submitting}
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl transition text-sm font-semibold disabled:opacity-50"
-                >
-                  {submitting ? 'Saving...' : 'Save Worker'}
-                </button>
-              </div>
-            </form>
+            <Select
+              label="Compte Utilisateur Lié (Optionnel)"
+              value={linkedUserId}
+              onChange={(e) => setLinkedUserId(e.target.value)}
+            >
+              <option value="">-- Aucun compte d&apos;accès --</option>
+              {users.map((u) => (
+                <option key={u.id} value={u.id}>
+                  {u.username} ({u.role})
+                </option>
+              ))}
+            </Select>
           </div>
-        </div>
-      )}
+
+          <div className="pt-2">
+            <label className="flex items-center gap-2.5 text-xs text-text-secondary cursor-pointer">
+              <input
+                type="checkbox"
+                checked={active}
+                onChange={(e) => setActive(e.target.checked)}
+                className="w-4 h-4 rounded border-border-default bg-surface-base text-accent"
+              />
+              <span>Collaborateur actuellement en activité dans l&apos;atelier</span>
+            </label>
+          </div>
+
+          <div className="flex gap-2.5 pt-3">
+            <Button type="submit" isLoading={submitting} className="flex-1">
+              {isEditing ? 'Enregistrer les Modifications' : 'Créer la Fiche'}
+            </Button>
+            <Button type="button" variant="secondary" onClick={() => setShowModal(false)} className="flex-1">
+              Annuler
+            </Button>
+          </div>
+        </form>
+      </Modal>
     </div>
   );
 }

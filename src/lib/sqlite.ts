@@ -379,6 +379,70 @@ function initSchema(db: Database) {
       uninstalled_at TEXT
     );
 
+    CREATE TABLE IF NOT EXISTS marketplace_listings (
+      id TEXT PRIMARY KEY,
+      organization_id TEXT NOT NULL,
+      title TEXT NOT NULL,
+      description TEXT,
+      category TEXT NOT NULL,
+      part_number TEXT,
+      condition TEXT NOT NULL DEFAULT 'new',
+      brand TEXT,
+      compatible_vehicles TEXT,
+      price REAL NOT NULL,
+      currency TEXT DEFAULT 'DZD',
+      quantity INTEGER NOT NULL DEFAULT 1,
+      min_order_quantity INTEGER DEFAULT 1,
+      wilaya TEXT,
+      city TEXT,
+      phone TEXT,
+      images TEXT DEFAULT '[]',
+      status TEXT NOT NULL DEFAULT 'active',
+      views_count INTEGER DEFAULT 0,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS conversations (
+      id TEXT PRIMARY KEY,
+      org_a_id TEXT NOT NULL,
+      org_b_id TEXT NOT NULL,
+      listing_id TEXT,
+      last_message_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(org_a_id, org_b_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS direct_messages (
+      id TEXT PRIMARY KEY,
+      conversation_id TEXT NOT NULL,
+      sender_org_id TEXT NOT NULL,
+      sender_user_id TEXT,
+      body TEXT NOT NULL,
+      is_read INTEGER DEFAULT 0,
+      read_at TEXT,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS mechanical_solutions (
+      id TEXT PRIMARY KEY,
+      organization_id TEXT NOT NULL,
+      author_user_id TEXT,
+      title TEXT NOT NULL,
+      dtc_code TEXT,
+      symptoms TEXT NOT NULL,
+      root_cause TEXT NOT NULL,
+      solution_steps TEXT NOT NULL,
+      parts_needed TEXT DEFAULT '[]',
+      tools_needed TEXT DEFAULT '[]',
+      upvotes_count INTEGER DEFAULT 0,
+      views_count INTEGER DEFAULT 0,
+      is_verified_solution INTEGER DEFAULT 0,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
+
     CREATE TABLE IF NOT EXISTS api_keys (
       id TEXT PRIMARY KEY,
       app_install_id TEXT NOT NULL,

@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect } from 'react';
 import QRCode from 'qrcode';
@@ -253,7 +253,7 @@ export default function FlippablePvcCard({
           <button
             type="button"
             onClick={() => setIsFlipped(!isFlipped)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-850 hover:bg-slate-800 text-slate-300 border border-slate-700/60 transition active:scale-[0.98]"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-surface-overlay hover:bg-slate-800 text-slate-300 border border-slate-700/60 transition active:scale-[0.98]"
           >
             <svg className="w-3.5 h-3.5 text-blue-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
@@ -266,7 +266,7 @@ export default function FlippablePvcCard({
               <button
                 type="button"
                 onClick={handleCopyLink}
-                className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-slate-850 hover:bg-slate-800 text-slate-300 border border-slate-700/60 transition active:scale-[0.98]"
+                className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl bg-surface-overlay hover:bg-slate-800 text-slate-300 border border-slate-700/60 transition active:scale-[0.98]"
                 title="Copier le lien public"
               >
                 <svg className="w-3.5 h-3.5 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>

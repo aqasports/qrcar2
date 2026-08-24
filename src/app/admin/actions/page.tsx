@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
@@ -123,7 +123,7 @@ export default function ActionsPage() {
             <Link
               key={tpl.id}
               href={`/admin/actions/new?template=${tpl.id}`}
-              className="p-2.5 rounded-xl bg-slate-950/70 hover:bg-slate-900 border border-slate-850 hover:border-blue-500/40 text-left transition group"
+              className="p-2.5 rounded-xl bg-slate-950/70 hover:bg-slate-900 border border-border-subtle hover:border-blue-500/40 text-left transition group"
             >
               <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider block group-hover:text-blue-400">
                 {tpl.specialty}
@@ -171,7 +171,7 @@ export default function ActionsPage() {
               </thead>
               <tbody className="divide-y divide-slate-800/80">
                 {actions.map((act) => (
-                  <tr key={act.id} className="hover:bg-slate-850/30 transition duration-100">
+                  <tr key={act.id} className="hover:bg-slate-900/30 transition duration-100">
                     <td className="px-6 py-4 text-sm text-slate-400">
                       {new Date(act.date_in).toLocaleDateString()}
                     </td>

@@ -1,10 +1,17 @@
 import React from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui';
 
+export interface InvoiceSummary {
+  id?: string;
+  invoice_number?: string;
+  total?: number;
+  status?: string;
+}
+
 interface ActionCostSummaryProps {
   laborCost: number;
   partsUsed: Array<{ quantity: number; unit_price_snapshot?: number }>;
-  invoice: any;
+  invoice: InvoiceSummary | null;
 }
 
 export function ActionCostSummary({

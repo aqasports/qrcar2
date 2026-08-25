@@ -1,8 +1,21 @@
-﻿'use client';
+'use client';
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { useSession } from 'next-auth/react';
+import {
+  PageHeader,
+  Card,
+  Table,
+  TableHeader,
+  TableBody,
+  TableRow,
+  TableHead,
+  TableCell,
+  TableLoadingState,
+  TableEmptyState,
+  Badge,
+  Button,
+} from '@/components/ui';
 import { INTERVENTION_TEMPLATES } from '@/lib/intervention-templates';
 
 interface Action {
@@ -21,101 +34,124 @@ interface Action {
 }
 
 export default function ActionsPage() {
-  const { data: session } = useSession();
-  const role = session?.user?.role;
-
   const [actions, setActions] = useState<Action[]>([]);
   const [loading, setLoading] = useState(true);
   const [statusFilter, setStatusFilter] = useState('');
 
-  const fetchActions = async (status = '') => {
-    setLoading(true);
-    try {
-      let url = '/api/actions';
-      if (status) {
-        url += `?status=${status}`;
-      }
-      const res = await fetch(url);
-      const data = await res.json();
-      if (Array.isArray(data)) {
-        let filtered = data;
-        if (status) {
-          filtered = data.filter((a) => a.status === status);
+  useEffect(() => {
+    let isMounted = true;
+    async function loadActions() {
+      try {
+        let url = '/api/actions';
+        if (statusFilter) {
+          url += `?status=${statusFilter}`;
         }
-        setActions(filtered);
+        const res = await fetch(url);
+        const data = await res.json();
+        if (isMounted && Array.isArray(data)) {
+          let filtered = data;
+          if (statusFilter) {
+            filtered = data.filter((a) => a.status === statusFilter);
+          }
+          setActions(filtered);
+        }
+      } catch (err) {
+        console.error(err);
+      } finally {
+        if (isMounted) setLoading(false);
       }
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
+    }
+    loadActions();
+    return () => {
+      isMounted = false;
+    };
+  }, [statusFilter]);
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'completed':
+      case 'invoiced':
+        return <Badge variant="success">Terminé</Badge>;
+      case 'in_progress':
+        return <Badge variant="info" pulse>En Atelier</Badge>;
+      case 'open':
+        return <Badge variant="warning">Ouvert</Badge>;
+      default:
+        return <Badge variant="neutral">{status}</Badge>;
     }
   };
 
-  useEffect(() => {
-    fetchActions(statusFilter);
-  }, [statusFilter]);
-
   return (
-    <div className="space-y-6 max-w-6xl">
-      {/* Header & Trade Shortcuts */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-        <div>
-          <h2 className="text-2xl font-bold text-slate-100">Interventions & Travaux Atelier</h2>
-          <p className="text-slate-400 text-sm mt-1">Journal des ordres de réparation, entretiens et modèles spécialisés</p>
-        </div>
+    <div className="space-y-6 max-w-6xl mx-auto pb-16 font-sans">
+      <PageHeader
+        title="Interventions & Travaux Atelier"
+        subtitle="Journal des ordres de réparation, entretiens et modèles spécialisés"
+        breadcrumbs={[{ label: 'Cockpit', href: '/admin' }, { label: 'Ordres de Réparation' }]}
+        actions={
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex gap-1 bg-surface-raised p-1 rounded-xl border border-border-subtle">
+              <button
+                onClick={() => setStatusFilter('')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
+                  statusFilter === ''
+                    ? 'bg-accent text-white shadow-sm'
+                    : 'text-text-muted hover:text-text-primary'
+                }`}
+              >
+                Tous
+              </button>
+              <button
+                onClick={() => setStatusFilter('open')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
+                  statusFilter === 'open'
+                    ? 'bg-accent text-white shadow-sm'
+                    : 'text-text-muted hover:text-text-primary'
+                }`}
+              >
+                Ouvert
+              </button>
+              <button
+                onClick={() => setStatusFilter('in_progress')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
+                  statusFilter === 'in_progress'
+                    ? 'bg-accent text-white shadow-sm'
+                    : 'text-text-muted hover:text-text-primary'
+                }`}
+              >
+                En cours
+              </button>
+              <button
+                onClick={() => setStatusFilter('completed')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition cursor-pointer ${
+                  statusFilter === 'completed'
+                    ? 'bg-accent text-white shadow-sm'
+                    : 'text-text-muted hover:text-text-primary'
+                }`}
+              >
+                Terminé
+              </button>
+            </div>
 
-        <div className="flex flex-wrap items-center gap-3">
-          {/* Status filters */}
-          <div className="flex gap-1 bg-slate-900 p-1 rounded-xl border border-slate-800">
-            <button
-              onClick={() => setStatusFilter('')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
-                statusFilter === '' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-slate-300'
-              }`}
-            >
-              Tous
-            </button>
-            <button
-              onClick={() => setStatusFilter('open')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
-                statusFilter === 'open' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-slate-300'
-              }`}
-            >
-              Ouvert
-            </button>
-            <button
-              onClick={() => setStatusFilter('in_progress')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
-                statusFilter === 'in_progress' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-slate-300'
-              }`}
-            >
-              En cours
-            </button>
-            <button
-              onClick={() => setStatusFilter('completed')}
-              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
-                statusFilter === 'completed' ? 'bg-blue-600 text-white' : 'text-slate-400 hover:text-slate-300'
-              }`}
-            >
-              Terminé
-            </button>
+            <Link href="/admin/actions/new">
+              <Button
+                variant="primary"
+                size="sm"
+                leftIcon={
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                  </svg>
+                }
+              >
+                Nouvel OR
+              </Button>
+            </Link>
           </div>
-
-          <Link
-            href="/admin/actions/new"
-            className="inline-flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded-xl text-xs font-bold shadow-lg shadow-blue-500/15 transition active:scale-[0.98]"
-          >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-            </svg>
-            Nouvel Ordre de Réparation
-          </Link>
-        </div>
-      </div>
+        }
+      />
 
       {/* Specialty Trade Studio Quick Launchers */}
-      <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-4">
-        <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 block mb-2.5">
+      <Card className="p-4 space-y-2.5">
+        <span className="text-[11px] font-bold uppercase tracking-wider text-text-muted block">
           Accès Rapide par Métier / Poste Atelier
         </span>
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
@@ -123,93 +159,81 @@ export default function ActionsPage() {
             <Link
               key={tpl.id}
               href={`/admin/actions/new?template=${tpl.id}`}
-              className="p-2.5 rounded-xl bg-slate-950/70 hover:bg-slate-900 border border-border-subtle hover:border-blue-500/40 text-left transition group"
+              className="p-2.5 rounded-xl bg-surface-base border border-border-subtle hover:border-accent/40 text-left transition group"
             >
-              <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider block group-hover:text-blue-400">
+              <span className="text-[9px] font-bold text-text-muted uppercase tracking-wider block group-hover:text-accent">
                 {tpl.specialty}
               </span>
-              <span className="text-xs font-bold text-slate-300 group-hover:text-white block mt-0.5 leading-tight truncate">
+              <span className="text-xs font-bold text-text-primary group-hover:text-white block mt-0.5 leading-tight truncate">
                 {tpl.name}
               </span>
             </Link>
           ))}
         </div>
-      </div>
+      </Card>
 
       {/* Service Action Listing */}
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
-        {loading ? (
-          <div className="p-8 text-center text-slate-500">Chargement du journal d&apos;interventions...</div>
-        ) : actions.length === 0 ? (
-          <div className="p-12 text-center">
-            <p className="text-sm font-semibold text-slate-400">Aucune intervention enregistrée.</p>
-            <p className="text-xs text-slate-500 mt-1">Ouvrez le Studio pour enregistrer une intervention ou utiliser un modèle spécialisé.</p>
-            <Link
-              href="/admin/actions/new"
-              className="inline-flex items-center gap-2 mt-4 px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold transition shadow-md shadow-blue-500/10"
-            >
-              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-              </svg>
-              Ouvrir le Studio d&apos;Intervention
-            </Link>
-          </div>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="border-b border-slate-800 text-slate-400 text-xs font-bold uppercase tracking-wider bg-slate-950/30">
-                  <th className="px-6 py-4">Date Entrée</th>
-                  <th className="px-6 py-4">Véhicule</th>
-                  <th className="px-6 py-4">Immatriculation</th>
-                  <th className="px-6 py-4">Type</th>
-                  <th className="px-6 py-4">Description</th>
-                  <th className="px-6 py-4">Kilométrage</th>
-                  <th className="px-6 py-4">Statut</th>
-                  <th className="px-6 py-4 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-800/80">
-                {actions.map((act) => (
-                  <tr key={act.id} className="hover:bg-slate-900/30 transition duration-100">
-                    <td className="px-6 py-4 text-sm text-slate-400">
-                      {new Date(act.date_in).toLocaleDateString()}
-                    </td>
-                    <td className="px-6 py-4 text-sm font-semibold text-slate-200">
-                      <Link href={`/admin/vehicles/${act.vehicle_id}`} className="hover:text-blue-400 transition">
-                        {act.make} {act.model}
-                      </Link>
-                    </td>
-                    <td className="px-6 py-4 text-sm font-mono text-slate-300">{act.plate_number}</td>
-                    <td className="px-6 py-4 text-sm capitalize text-slate-300 font-semibold">{act.type}</td>
-                    <td className="px-6 py-4 text-sm text-slate-400 truncate max-w-xs">{act.description}</td>
-                    <td className="px-6 py-4 text-sm text-slate-400 font-mono">{act.mileage_at_service.toLocaleString()} km</td>
-                    <td className="px-6 py-4 text-sm">
-                      <span className={`inline-block text-[10px] font-bold uppercase px-2 py-0.5 rounded-full ${
-                        act.status === 'completed' || act.status === 'invoiced'
-                          ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-                          : act.status === 'in_progress'
-                          ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
-                          : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
-                      }`}>
-                        {act.status}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4 text-sm text-right">
-                      <Link
-                        href={`/admin/actions/${act.id}`}
-                        className="text-xs font-bold text-blue-500 hover:text-blue-400 transition"
-                      >
-                        Ouvrir Dossier &rarr;
-                      </Link>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+      <Table>
+        <TableHeader>
+          <tr>
+            <TableHead>Date Entrée</TableHead>
+            <TableHead>Véhicule</TableHead>
+            <TableHead>Immatriculation</TableHead>
+            <TableHead>Type</TableHead>
+            <TableHead>Description</TableHead>
+            <TableHead>Kilométrage</TableHead>
+            <TableHead>Statut</TableHead>
+            <TableHead className="text-right">Actions</TableHead>
+          </tr>
+        </TableHeader>
+        <TableBody>
+          {loading ? (
+            <TableLoadingState colSpan={8} message="Chargement du journal d'interventions..." />
+          ) : actions.length === 0 ? (
+            <TableEmptyState
+              colSpan={8}
+              title="Aucune intervention enregistrée"
+              description="Ouvrez le Studio pour enregistrer une intervention ou utiliser un modèle spécialisé."
+              action={
+                <Link href="/admin/actions/new">
+                  <Button variant="primary" size="sm">
+                    Ouvrir le Studio d&apos;Intervention
+                  </Button>
+                </Link>
+              }
+            />
+          ) : (
+            actions.map((act) => (
+              <TableRow key={act.id}>
+                <TableCell className="text-text-muted font-mono text-xs">
+                  {new Date(act.date_in).toLocaleDateString('fr-FR')}
+                </TableCell>
+                <TableCell className="font-bold text-text-primary">
+                  <Link href={`/admin/vehicles/${act.vehicle_id}`} className="hover:text-accent transition">
+                    {act.make} {act.model}
+                  </Link>
+                </TableCell>
+                <TableCell>
+                  <span className="font-mono font-bold px-2 py-0.5 rounded bg-surface-base border border-border-subtle text-accent text-xs">
+                    {act.plate_number}
+                  </span>
+                </TableCell>
+                <TableCell className="capitalize text-text-secondary font-medium">{act.type}</TableCell>
+                <TableCell className="text-text-muted truncate max-w-xs">{act.description}</TableCell>
+                <TableCell className="text-text-muted font-mono">{act.mileage_at_service.toLocaleString()} km</TableCell>
+                <TableCell>{getStatusBadge(act.status)}</TableCell>
+                <TableCell className="text-right">
+                  <Link href={`/admin/actions/${act.id}`}>
+                    <Button variant="secondary" size="sm">
+                      Ouvrir Dossier →
+                    </Button>
+                  </Link>
+                </TableCell>
+              </TableRow>
+            ))
+          )}
+        </TableBody>
+      </Table>
     </div>
   );
 }

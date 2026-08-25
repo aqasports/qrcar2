@@ -1,16 +1,16 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useSession } from 'next-auth/react';
 import { Spinner, Button } from '@/components/ui';
 import { ActionHeader } from '@/components/actions/ActionHeader';
-import { ActionDetailsCard } from '@/components/actions/ActionDetailsCard';
-import { ActionPartsTable } from '@/components/actions/ActionPartsTable';
-import { ActionWorkersCard } from '@/components/actions/ActionWorkersCard';
-import { ActionCostSummary } from '@/components/actions/ActionCostSummary';
-import { AttachPartModal } from '@/components/actions/AttachPartModal';
-import { AssignWorkerModal } from '@/components/actions/AssignWorkerModal';
+import { ActionDetailsCard, ActionDetailData } from '@/components/actions/ActionDetailsCard';
+import { ActionPartsTable, PartUsed } from '@/components/actions/ActionPartsTable';
+import { ActionWorkersCard, WorkerAssignment } from '@/components/actions/ActionWorkersCard';
+import { ActionCostSummary, InvoiceSummary } from '@/components/actions/ActionCostSummary';
+import { AttachPartModal, CatalogPartOption } from '@/components/actions/AttachPartModal';
+import { AssignWorkerModal, WorkerOption } from '@/components/actions/AssignWorkerModal';
 
 export default function ActionDetailPage() {
   const { data: session } = useSession();
@@ -19,12 +19,12 @@ export default function ActionDetailPage() {
   const params = useParams();
   const actionId = params.id as string;
 
-  const [action, setAction] = useState<any>(null);
-  const [assignedWorkers, setAssignedWorkers] = useState<any[]>([]);
-  const [partsUsed, setPartsUsed] = useState<any[]>([]);
-  const [allWorkers, setAllWorkers] = useState<any[]>([]);
-  const [catalogParts, setCatalogParts] = useState<any[]>([]);
-  const [invoice, setInvoice] = useState<any>(null);
+  const [action, setAction] = useState<ActionDetailData | null>(null);
+  const [assignedWorkers, setAssignedWorkers] = useState<WorkerAssignment[]>([]);
+  const [partsUsed, setPartsUsed] = useState<PartUsed[]>([]);
+  const [allWorkers, setAllWorkers] = useState<WorkerOption[]>([]);
+  const [catalogParts, setCatalogParts] = useState<CatalogPartOption[]>([]);
+  const [invoice, setInvoice] = useState<InvoiceSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -60,8 +60,7 @@ export default function ActionDetailPage() {
   // Billing
   const [generatingInvoice, setGeneratingInvoice] = useState(false);
 
-  const fetchActionData = async () => {
-    setLoading(true);
+  const fetchActionData = useCallback(async () => {
     try {
       const res = await fetch(`/api/actions/${actionId}`);
       const data = await res.json();
@@ -84,32 +83,64 @@ export default function ActionDetailPage() {
         setDateOut(data.action.date_out ? data.action.date_out.split('T')[0] : '');
       }
     } catch (err) {
+      console.error(err);
       setError('Échec de communication réseau.');
     } finally {
       setLoading(false);
     }
-  };
-
-  const fetchWorkersAndParts = async () => {
-    try {
-      const [wRes, pRes] = await Promise.all([
-        fetch('/api/workers'),
-        fetch('/api/parts'),
-      ]);
-      const wData = await wRes.json();
-      const pData = await pRes.json();
-      if (Array.isArray(wData)) setAllWorkers(wData.filter((w: any) => w.active));
-      if (Array.isArray(pData)) setCatalogParts(pData);
-    } catch (err) {
-      console.error(err);
-    }
-  };
+  }, [actionId]);
 
   useEffect(() => {
-    fetchActionData();
-    if (role && role !== 'technician') {
-      fetchWorkersAndParts();
+    let isMounted = true;
+    async function init() {
+      try {
+        const res = await fetch(`/api/actions/${actionId}`);
+        const data = await res.json();
+        if (!isMounted) return;
+        if (!res.ok) {
+          setError(data.error || 'Impossible de charger l\'intervention.');
+        } else {
+          setAction(data.action);
+          setAssignedWorkers(data.workers || []);
+          setPartsUsed(data.parts || []);
+          setInvoice(data.invoice || null);
+
+          setServiceType(data.action.type);
+          setDescription(data.action.description || '');
+          setClientVisibleNotes(data.action.client_visible_notes || '');
+          setInternalNotes(data.action.internal_notes || '');
+          setMileage(data.action.mileage_at_service?.toString() || '0');
+          setStatus(data.action.status);
+          setLaborCost(data.action.labor_cost?.toString() || '0.00');
+          setDateIn(data.action.date_in ? data.action.date_in.split('T')[0] : '');
+          setDateOut(data.action.date_out ? data.action.date_out.split('T')[0] : '');
+        }
+      } catch (err) {
+        console.error(err);
+        if (isMounted) setError('Échec de communication réseau.');
+      } finally {
+        if (isMounted) setLoading(false);
+      }
+
+      if (role && role !== 'technician') {
+        try {
+          const [wRes, pRes] = await Promise.all([
+            fetch('/api/workers'),
+            fetch('/api/parts'),
+          ]);
+          const wData = await wRes.json();
+          const pData = await pRes.json();
+          if (isMounted && Array.isArray(wData)) setAllWorkers(wData.filter((w: WorkerOption) => w.active));
+          if (isMounted && Array.isArray(pData)) setCatalogParts(pData);
+        } catch (err) {
+          console.error(err);
+        }
+      }
     }
+    init();
+    return () => {
+      isMounted = false;
+    };
   }, [actionId, role]);
 
   const handleSaveAction = async (e: React.FormEvent) => {
@@ -142,6 +173,7 @@ export default function ActionDetailPage() {
         setIsEditing(false);
       }
     } catch (err) {
+      console.error(err);
       setActionError('Erreur de communication.');
     } finally {
       setSaving(false);
@@ -173,6 +205,7 @@ export default function ActionDetailPage() {
         fetchActionData();
       }
     } catch (err) {
+      console.error(err);
       setWorkerAssignError('Erreur réseau.');
     } finally {
       setSavingWorkers(false);
@@ -214,6 +247,7 @@ export default function ActionDetailPage() {
         fetchActionData();
       }
     } catch (err) {
+      console.error(err);
       setAttachError('Erreur réseau.');
     } finally {
       setIsAttaching(false);
@@ -237,7 +271,6 @@ export default function ActionDetailPage() {
       const res = await fetch(`/api/actions/${actionId}/invoice`, {
         method: 'POST',
       });
-      const data = await res.json();
       if (res.ok) {
         fetchActionData();
         router.push(`/admin/invoices`);

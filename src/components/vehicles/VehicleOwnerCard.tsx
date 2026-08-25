@@ -2,8 +2,15 @@ import React from 'react';
 import Link from 'next/link';
 import { Card, CardHeader, CardTitle, CardContent, Button, Select } from '@/components/ui';
 
+export interface VehicleOwnerData {
+  id?: string;
+  client_id?: string;
+  client_name?: string;
+  client_phone?: string;
+}
+
 interface VehicleOwnerCardProps {
-  vehicle: any;
+  vehicle: VehicleOwnerData;
   clients: Array<{ id: string; full_name: string }>;
   isTransferring: boolean;
   selectedClientId: string;

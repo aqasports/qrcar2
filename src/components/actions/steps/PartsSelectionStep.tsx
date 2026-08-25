@@ -1,17 +1,18 @@
 import React, { useState } from 'react';
 import { Card, CardHeader, CardTitle, CardContent, Input, Button } from '@/components/ui';
 
-interface CatalogPart {
+export interface CatalogPart {
   id: string;
   name: string;
   sku: string;
-  category: string;
+  category?: string;
   quantity_in_stock: number;
   sale_price: number;
-  unit: string;
+  unit?: string;
+  active?: boolean;
 }
 
-interface SelectedPart {
+export interface SelectedPart {
   part_id: string;
   quantity: number;
   name: string;

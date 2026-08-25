@@ -43,7 +43,7 @@ export default async function AdminLayout({
 
   return (
     <I18nProvider initialLocale={orgLocale}>
-      <div className="flex h-screen bg-slate-950 text-slate-100 overflow-hidden font-sans antialiased selection:bg-blue-600 selection:text-white">
+      <div className="flex h-screen bg-surface-base text-text-primary overflow-hidden font-sans antialiased selection:bg-accent selection:text-white">
         {/* Categorized Executive Sidebar */}
         <AdminSidebar
           orgName={orgName}
@@ -54,7 +54,7 @@ export default async function AdminLayout({
         />
 
         {/* Main Command Station Area */}
-        <div className="flex-1 flex flex-col min-w-0 overflow-hidden bg-slate-950">
+        <div className="flex-1 flex flex-col min-w-0 overflow-hidden bg-surface-base">
           {/* Top Interactive Cockpit Header */}
           <AdminCockpitHeader orgName={orgName} role={role} planSlug={planSlug} />
 

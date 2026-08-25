@@ -261,3 +261,79 @@ export async function PATCH(
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
   }
 }
+
+// DELETE /api/vehicles/[id] - Delete vehicle scoped to organization
+export async function DELETE(
+  req: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const { id: vehicleId } = await params;
+  const session = await getServerSession(authOptions);
+  if (!session) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  const { role, id: userId, organizationId } = session.user;
+
+  // Restricted to owner, super_admin, platform_admin
+  if (role !== 'owner' && role !== 'super_admin' && role !== 'platform_admin') {
+    return NextResponse.json({ error: 'Forbidden: Insufficient privileges' }, { status: 403 });
+  }
+
+  try {
+    // 1. Verify vehicle exists within this organization
+    const existing = await sql(
+      `SELECT id, plate_number, make, model FROM vehicles WHERE id = $1 AND organization_id = $2 LIMIT 1`,
+      [vehicleId, organizationId]
+    );
+    if (existing.length === 0) {
+      return NextResponse.json({ error: 'Vehicle not found' }, { status: 404 });
+    }
+    const vehicle = existing[0];
+
+    // 2. Unlink any active/linked PVC cards
+    await sql(
+      `UPDATE pvc_cards SET vehicle_id = NULL, status = 'available', updated_at = CURRENT_TIMESTAMP WHERE vehicle_id = $1 AND organization_id = $2`,
+      [vehicleId, organizationId]
+    );
+
+    // 3. Clean up action workers & action parts for any actions linked to this vehicle
+    const actionRows = await sql(
+      `SELECT id FROM actions WHERE vehicle_id = $1 AND organization_id = $2`,
+      [vehicleId, organizationId]
+    );
+    for (const a of actionRows) {
+      await sql(`DELETE FROM action_workers WHERE action_id = $1`, [a.id]);
+      await sql(`DELETE FROM action_parts WHERE action_id = $1`, [a.id]);
+    }
+    await sql(
+      `DELETE FROM actions WHERE vehicle_id = $1 AND organization_id = $2`,
+      [vehicleId, organizationId]
+    );
+
+    // 4. Delete vehicle
+    await sql(
+      `DELETE FROM vehicles WHERE id = $1 AND organization_id = $2`,
+      [vehicleId, organizationId]
+    );
+
+    // 5. Log audit
+    await logAudit({
+      organizationId,
+      userId,
+      entityType: 'vehicles',
+      entityId: vehicleId,
+      action: 'delete',
+      metadata: {
+        plate_number: vehicle.plate_number,
+        make: vehicle.make,
+        model: vehicle.model,
+      },
+    });
+
+    return NextResponse.json({ success: true, message: 'Véhicule supprimé avec succès.' });
+  } catch (error) {
+    console.error('Failed to delete vehicle:', error);
+    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+  }
+}

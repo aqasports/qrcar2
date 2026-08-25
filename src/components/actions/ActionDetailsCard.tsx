@@ -2,8 +2,26 @@ import React from 'react';
 import Link from 'next/link';
 import { Card, CardHeader, CardTitle, CardContent, Button, Input, Select, Textarea } from '@/components/ui';
 
+export interface ActionDetailData {
+  id: string;
+  type: string;
+  description: string;
+  client_visible_notes?: string;
+  internal_notes?: string;
+  mileage_at_service: number;
+  status: string;
+  labor_cost: number;
+  date_in: string;
+  date_out?: string;
+  vehicle_id: string;
+  plate_number?: string;
+  make?: string;
+  model?: string;
+  client_name?: string;
+}
+
 interface ActionDetailsCardProps {
-  action: any;
+  action: ActionDetailData;
   isEditing: boolean;
   onStartEdit: () => void;
   onCancelEdit: () => void;
@@ -11,7 +29,7 @@ interface ActionDetailsCardProps {
   saving: boolean;
   formState: {
     serviceType: string;
-    setServiceType: (v: any) => void;
+    setServiceType: (v: string) => void;
     description: string;
     setDescription: (v: string) => void;
     clientVisibleNotes: string;
@@ -21,7 +39,7 @@ interface ActionDetailsCardProps {
     mileage: string;
     setMileage: (v: string) => void;
     status: string;
-    setStatus: (v: any) => void;
+    setStatus: (v: string) => void;
     laborCost: string;
     setLaborCost: (v: string) => void;
     dateIn: string;

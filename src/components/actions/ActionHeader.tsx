@@ -2,17 +2,26 @@ import React from 'react';
 import Link from 'next/link';
 import { Button, Badge } from '@/components/ui';
 
+export interface InvoiceMeta {
+  id?: string;
+  invoice_number?: string;
+  status?: string;
+  total?: number | string;
+}
+
+export interface ActionHeaderData {
+  id: string;
+  type: string;
+  plate_number?: string;
+  make?: string;
+  model?: string;
+  vehicle_id?: string;
+  status: string;
+}
+
 interface ActionHeaderProps {
-  action: {
-    id: string;
-    type: string;
-    plate_number: string;
-    make: string;
-    model: string;
-    vehicle_id: string;
-    status: string;
-  };
-  invoice: any;
+  action: ActionHeaderData;
+  invoice: InvoiceMeta | null;
   onGenerateInvoice: () => void;
   onDeleteAction: () => void;
   generatingInvoice: boolean;
@@ -50,15 +59,15 @@ export function ActionHeader({
             Ordres de Réparation
           </Link>
           <span className="text-text-disabled">/</span>
-          <Link href={`/admin/vehicles/${action.vehicle_id}`} className="hover:text-text-primary transition-colors font-mono">
-            {action.plate_number}
+          <Link href={`/admin/vehicles/${action.vehicle_id || ''}`} className="hover:text-text-primary transition-colors font-mono">
+            {action.plate_number || 'Véhicule'}
           </Link>
           <span className="text-text-disabled">/</span>
           <span className="text-text-primary font-medium">Intervention #{action.id.slice(-6)}</span>
         </div>
         <div className="flex items-center gap-3 flex-wrap">
           <h1 className="text-2xl sm:text-3xl font-black text-text-primary tracking-tight capitalize">
-            {action.type} — {action.make} {action.model}
+            {action.type} {action.make || action.model ? `— ${action.make || ''} ${action.model || ''}` : ''}
           </h1>
           {getStatusBadge(action.status)}
         </div>
@@ -76,7 +85,7 @@ export function ActionHeader({
                 </svg>
               }
             >
-              Facture {invoice.invoice_number} ({invoice.total.toLocaleString()} DZD)
+              Facture {invoice.invoice_number}{invoice.total !== undefined ? ` (${Number(invoice.total).toLocaleString()} DZD)` : ''}
             </Button>
           </Link>
         ) : (

@@ -1,8 +1,26 @@
 import React from 'react';
 import { Card, CardHeader, CardTitle, CardContent, Button, Input, Select } from '@/components/ui';
 
+export interface VehicleSpecsData {
+  plate_number?: string;
+  make?: string;
+  model?: string;
+  year?: number | string;
+  vin?: string;
+  color?: string;
+  current_mileage?: number | string;
+  fuel_type?: string;
+  transmission?: string;
+  engine_spec?: string;
+  oil_type?: string;
+  tire_size?: string;
+  next_service_mileage?: number | string;
+  next_service_date?: string;
+  next_inspection_date?: string;
+}
+
 interface VehicleSpecsCardProps {
-  vehicle: any;
+  vehicle: VehicleSpecsData | null;
   isEditing: boolean;
   onStartEdit: () => void;
   onCancelEdit: () => void;
@@ -54,6 +72,8 @@ export function VehicleSpecsCard({
   formState,
   role,
 }: VehicleSpecsCardProps) {
+  if (!vehicle) return null;
+
   return (
     <Card>
       <CardHeader>

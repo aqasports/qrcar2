@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
+import { Button, Badge, Card, Spinner } from '@/components/ui';
 
 export default function GaragePublicProfilePage() {
   const { slug } = useParams() as { slug: string };
@@ -32,24 +33,23 @@ export default function GaragePublicProfilePage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+      <div className="min-h-screen bg-surface-base flex items-center justify-center">
+        <Spinner size="lg" />
       </div>
     );
   }
 
   if (error || !data || !data.organization) {
     return (
-      <div className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center p-6">
-        <div className="bg-slate-900 border border-slate-800 rounded-3xl p-12 text-center max-w-md w-full space-y-4">
-          <p className="text-base font-bold text-slate-200">Garage introuvable dans l&apos;annuaire officiel.</p>
-          <Link
-            href="/annuaire"
-            className="inline-block px-5 py-2.5 bg-blue-600 text-white rounded-xl text-xs font-bold"
-          >
-            ← Retour à l&apos;Annuaire
+      <div className="min-h-screen bg-surface-base text-text-primary flex items-center justify-center p-6 font-sans">
+        <Card className="p-12 text-center max-w-md w-full space-y-4">
+          <p className="text-base font-bold text-text-primary">Garage introuvable dans l&apos;annuaire officiel.</p>
+          <Link href="/annuaire">
+            <Button variant="primary" size="sm">
+              ← Retour à l&apos;Annuaire
+            </Button>
           </Link>
-        </div>
+        </Card>
       </div>
     );
   }
@@ -79,7 +79,6 @@ export default function GaragePublicProfilePage() {
     sun: '08:00 - 18:00',
   };
 
-  // Schema.org AutoRepair JSON-LD Structured Data
   const jsonLd = {
     '@context': 'https://schema.org',
     '@type': 'AutoRepair',
@@ -101,38 +100,36 @@ export default function GaragePublicProfilePage() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 font-sans">
-      {/* Schema.org Injection */}
+    <div className="min-h-screen bg-surface-base text-text-primary font-sans">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
 
       {/* Top Navbar */}
-      <header className="border-b border-slate-800 bg-slate-900/60 backdrop-blur-md sticky top-0 z-40">
+      <header className="border-b border-border-subtle bg-surface-raised/80 backdrop-blur-md sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
-          <Link href="/annuaire" className="text-xs font-bold text-slate-400 hover:text-slate-200 transition flex items-center gap-1.5">
+          <Link href="/annuaire" className="text-xs font-bold text-text-muted hover:text-text-primary transition flex items-center gap-1.5">
             ← Annuaire National des Garages
           </Link>
 
-          <Link
-            href="/login"
-            className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold transition"
-          >
-            Espace Pro
+          <Link href="/login">
+            <Button variant="secondary" size="sm">
+              Espace Pro
+            </Button>
           </Link>
         </div>
       </header>
 
       {/* Garage Header Banner */}
-      <div className="relative border-b border-slate-800 bg-gradient-to-b from-slate-900 via-slate-900/40 to-slate-950 py-12 px-6">
+      <div className="relative border-b border-border-subtle bg-gradient-to-b from-surface-raised via-surface-raised/40 to-surface-base py-12 px-6">
         <div className="max-w-6xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-6">
           <div className="flex items-start gap-5">
             {garage.logo_url ? (
               <img
                 src={garage.logo_url}
                 alt={garage.name}
-                className="w-20 h-20 sm:w-24 sm:h-24 rounded-3xl object-cover border-2 border-slate-700 shadow-2xl shrink-0"
+                className="w-20 h-20 sm:w-24 sm:h-24 rounded-3xl object-cover border-2 border-border-subtle shadow-2xl shrink-0"
               />
             ) : (
               <div
@@ -145,17 +142,17 @@ export default function GaragePublicProfilePage() {
 
             <div className="space-y-1.5">
               <div className="flex items-center gap-2">
-                <h1 className="text-2xl sm:text-4xl font-black text-slate-100 tracking-tight">
+                <h1 className="text-2xl sm:text-4xl font-black text-text-primary tracking-tight">
                   {garage.name}
                 </h1>
                 {isSpotlight && (
-                  <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-500 text-slate-950">
+                  <Badge variant="warning" size="sm">
                     Expert Spotlight
-                  </span>
+                  </Badge>
                 )}
               </div>
 
-              <p className="text-sm text-slate-400 font-medium">
+              <p className="text-sm text-text-muted font-medium">
                 {garage.address} • {garage.city} ({garage.wilaya})
               </p>
 
@@ -186,52 +183,49 @@ export default function GaragePublicProfilePage() {
         {/* Left 2 Cols: Description, Solutions & Marketplace */}
         <div className="lg:col-span-2 space-y-8">
           {/* About Section */}
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-xl space-y-4">
-            <h2 className="text-sm font-bold text-slate-100 uppercase tracking-wider">
+          <Card className="p-6 sm:p-8 space-y-4">
+            <h2 className="text-sm font-bold text-text-primary uppercase tracking-wider">
               Présentation & Équipements de l&apos;Atelier
             </h2>
-            <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
+            <p className="text-xs sm:text-sm text-text-secondary leading-relaxed">
               {garage.description ||
                 `${garage.name} est un centre automobile moderne équipé de bancs de test et valises de diagnostic constructeur. Nos techniciens certifiés assurent la maintenance préventive et curative de vos véhicules selon les normes constructeur.`}
             </p>
 
             {/* Specialties Badges */}
-            <div className="pt-3 border-t border-slate-800">
-              <span className="text-[11px] font-bold uppercase text-slate-500 block mb-2">Spécialités Techniques :</span>
+            <div className="pt-3 border-t border-border-subtle">
+              <span className="text-[11px] font-bold uppercase text-text-muted block mb-2">Spécialités Techniques :</span>
               <div className="flex flex-wrap gap-2">
                 {specList.map((sp: string) => (
-                  <span
-                    key={sp}
-                    className="px-3 py-1 rounded-xl bg-blue-500/10 text-blue-400 border border-blue-500/20 text-xs font-semibold capitalize"
-                  >
+                  <Badge key={sp} variant="info" size="sm">
                     {sp.replace('_', ' ')}
-                  </span>
+                  </Badge>
                 ))}
               </div>
             </div>
 
             {/* Brands Serviced */}
-            <div className="pt-3 border-t border-slate-800">
-              <span className="text-[11px] font-bold uppercase text-slate-500 block mb-2">Marques Prises en Charge :</span>
+            <div className="pt-3 border-t border-border-subtle">
+              <span className="text-[11px] font-bold uppercase text-text-muted block mb-2">Marques Prises en Charge :</span>
               <div className="flex flex-wrap gap-2">
                 {brandsList.map((brand: string) => (
                   <span
                     key={brand}
-                    className="px-3 py-1 rounded-xl bg-slate-800 text-slate-300 text-xs font-medium"
+                    className="px-3 py-1 rounded-xl bg-surface-base text-text-secondary border border-border-subtle text-xs font-medium"
                   >
                     {brand}
                   </span>
                 ))}
               </div>
             </div>
-          </div>
+          </Card>
 
           {/* Authored DTC Solutions */}
           {solutions && solutions.length > 0 && (
-            <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-xl space-y-4">
-              <h2 className="text-sm font-bold text-slate-100 uppercase tracking-wider flex items-center justify-between">
+            <Card className="p-6 sm:p-8 space-y-4">
+              <h2 className="text-sm font-bold text-text-primary uppercase tracking-wider flex items-center justify-between">
                 <span>Solutions & Diagnostics Partagés ({solutions.length})</span>
-                <span className="text-[10px] text-blue-400 font-semibold">Base de Connaissances</span>
+                <span className="text-[10px] text-accent font-semibold">Base de Connaissances</span>
               </h2>
 
               <div className="space-y-3">
@@ -239,12 +233,12 @@ export default function GaragePublicProfilePage() {
                   <Link
                     key={sol.id}
                     href={`/admin/knowledgebase/${sol.id}`}
-                    className="block p-4 rounded-2xl bg-slate-950/60 border border-slate-800 hover:border-slate-700 transition"
+                    className="block p-4 rounded-2xl bg-surface-base border border-border-subtle hover:border-accent/40 transition"
                   >
-                    <div className="font-bold text-slate-100 text-xs hover:text-blue-400">
+                    <div className="font-bold text-text-primary text-xs hover:text-accent">
                       {sol.title}
                     </div>
-                    <div className="flex items-center gap-2 mt-1 text-[11px] text-slate-500">
+                    <div className="flex items-center gap-2 mt-1 text-[11px] text-text-muted">
                       <span>{sol.make} {sol.model}</span>
                       <span>•</span>
                       <span className="text-emerald-400 font-bold">{sol.upvotes_count} votes utiles</span>
@@ -252,13 +246,13 @@ export default function GaragePublicProfilePage() {
                   </Link>
                 ))}
               </div>
-            </div>
+            </Card>
           )}
 
           {/* Active Marketplace Parts */}
           {listings && listings.length > 0 && (
-            <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 sm:p-8 shadow-xl space-y-4">
-              <h2 className="text-sm font-bold text-slate-100 uppercase tracking-wider flex items-center justify-between">
+            <Card className="p-6 sm:p-8 space-y-4">
+              <h2 className="text-sm font-bold text-text-primary uppercase tracking-wider flex items-center justify-between">
                 <span>Pièces Détachées en Vente ({listings.length})</span>
                 <span className="text-[10px] text-amber-400 font-semibold">Stock Atelier</span>
               </h2>
@@ -267,11 +261,11 @@ export default function GaragePublicProfilePage() {
                 {listings.map((part: any) => (
                   <div
                     key={part.id}
-                    className="p-4 rounded-2xl bg-slate-950/60 border border-slate-800 space-y-1.5"
+                    className="p-4 rounded-2xl bg-surface-base border border-border-subtle space-y-1.5"
                   >
-                    <div className="font-bold text-slate-200 text-xs line-clamp-1">{part.title}</div>
+                    <div className="font-bold text-text-primary text-xs line-clamp-1">{part.title}</div>
                     {part.oem_number && (
-                      <span className="font-mono text-[10px] text-blue-400 block">OEM: {part.oem_number}</span>
+                      <span className="font-mono text-[10px] text-accent block">OEM: {part.oem_number}</span>
                     )}
                     <div className="font-mono font-bold text-amber-400 text-xs">
                       {parseFloat(part.price).toLocaleString('fr-FR')} DZD
@@ -279,14 +273,14 @@ export default function GaragePublicProfilePage() {
                   </div>
                 ))}
               </div>
-            </div>
+            </Card>
           )}
         </div>
 
         {/* Right 1 Col: Opening Hours & Location Info */}
         <div className="space-y-6">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-4">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">
+          <Card className="p-6 space-y-4">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-text-muted">
               Horaires d&apos;Ouverture
             </h3>
 
@@ -300,24 +294,24 @@ export default function GaragePublicProfilePage() {
                 { day: 'Jeudi', key: 'thu' },
                 { day: 'Vendredi', key: 'fri' },
               ].map(({ day, key }) => (
-                <div key={key} className="flex justify-between py-1 border-b border-slate-800/60 text-slate-300">
-                  <span className="font-semibold text-slate-400">{day}</span>
-                  <span className="font-mono text-slate-200">{hours[key] || '08:00 - 18:00'}</span>
+                <div key={key} className="flex justify-between py-1 border-b border-border-subtle text-text-secondary">
+                  <span className="font-semibold text-text-muted">{day}</span>
+                  <span className="font-mono text-text-primary">{hours[key] || '08:00 - 18:00'}</span>
                 </div>
               ))}
             </div>
-          </div>
+          </Card>
 
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 shadow-xl space-y-3 text-xs">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">
+          <Card className="p-6 space-y-3 text-xs">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-text-muted">
               Localisation & Coordonnées
             </h3>
-            <p className="text-slate-300">{garage.address || 'Adresse atelier non renseignée'}</p>
-            <p className="text-slate-400 font-medium">{garage.city}, {garage.wilaya}</p>
+            <p className="text-text-secondary">{garage.address || 'Adresse atelier non renseignée'}</p>
+            <p className="text-text-muted font-medium">{garage.city}, {garage.wilaya}</p>
             {garage.email && (
-              <p className="text-blue-400 font-mono text-[11px] pt-1">{garage.email}</p>
+              <p className="text-accent font-mono text-[11px] pt-1">{garage.email}</p>
             )}
-          </div>
+          </Card>
         </div>
       </main>
     </div>

@@ -1,10 +1,11 @@
 import React from 'react';
 import { Modal, Button, Input, Select } from '@/components/ui';
 
-interface WorkerOption {
+export interface WorkerOption {
   id: string;
   full_name: string;
   role: string;
+  active?: boolean;
 }
 
 interface AssignWorkerModalProps {

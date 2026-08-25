@@ -1,7 +1,7 @@
 import React from 'react';
 import { Card, CardHeader, CardTitle, CardContent, Button, Badge } from '@/components/ui';
 
-interface WorkerAssignment {
+export interface WorkerAssignment {
   assignment_id?: string;
   worker_id: string;
   role_on_job: 'lead' | 'assist';

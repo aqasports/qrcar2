@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Modal, Button, Input, Select } from '@/components/ui';
 
-interface CatalogPartOption {
+export interface CatalogPartOption {
   id: string;
   name: string;
   sku: string;

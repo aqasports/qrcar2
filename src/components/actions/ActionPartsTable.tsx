@@ -14,7 +14,7 @@ import {
   Button,
 } from '@/components/ui';
 
-interface PartUsed {
+export interface PartUsed {
   item_id?: string;
   part_id: string;
   quantity: number;

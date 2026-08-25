@@ -224,7 +224,7 @@ export default function PlatformAdminCardDesignsPage() {
                           <span className="opacity-80 block line-clamp-2">{d.back_address}</span>
                         </div>
                         <div className="w-12 h-12 bg-white rounded p-1 flex items-center justify-center">
-                          <div className="w-full h-full bg-slate-900 rounded-sm"></div>
+                          <div className="w-full h-full bg-surface-base rounded-sm"></div>
                         </div>
                       </div>
                     )}

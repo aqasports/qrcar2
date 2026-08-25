@@ -1,15 +1,15 @@
 import React from 'react';
-import { Card, CardHeader, CardTitle, CardContent, Input, Select, Badge } from '@/components/ui';
+import { Card, CardHeader, CardTitle, CardContent, Input, Select } from '@/components/ui';
 
-interface Vehicle {
+export interface Vehicle {
   id: string;
   plate_number: string;
   make: string;
   model: string;
-  year: number;
-  current_mileage: number;
+  year?: number;
+  current_mileage?: number;
   client_id?: string;
-  client_name: string;
+  client_name?: string;
   fuel_type?: string;
   transmission?: string;
   engine_spec?: string;

@@ -437,7 +437,7 @@ export default function CardStudioPage() {
 
                 <div className="w-[38%] flex flex-col items-center justify-center z-10">
                   <div className="w-24 h-24 bg-white p-2 rounded-2xl shadow-xl flex items-center justify-center">
-                    <div className="w-full h-full bg-slate-900 rounded-lg p-1.5 flex flex-col justify-between">
+                    <div className="w-full h-full bg-surface-base rounded-lg p-1.5 flex flex-col justify-between">
                       <div className="flex justify-between">
                         <div className="w-4 h-4 border-2 border-white rounded flex items-center justify-center">
                           <div className="w-1.5 h-1.5 bg-white"></div>

@@ -155,13 +155,13 @@ export default async function PublicQRPage({
 
   if (!allowed) {
     return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4">
-        <div className="w-full max-w-md bg-slate-900 border border-amber-500/20 p-8 rounded-2xl text-center shadow-xl">
+      <div className="min-h-screen bg-surface-base flex items-center justify-center p-4">
+        <div className="w-full max-w-md bg-surface-raised border border-amber-500/20 p-8 rounded-2xl text-center shadow-xl">
           <div className="w-12 h-12 rounded-full bg-amber-500/10 text-amber-400 flex items-center justify-center mx-auto text-xl mb-4 font-bold">
             !
           </div>
-          <h2 className="text-xl font-bold text-slate-100">Rate Limit Exceeded</h2>
-          <p className="text-slate-400 text-sm mt-2 font-medium">
+          <h2 className="text-xl font-bold text-text-primary">Rate Limit Exceeded</h2>
+          <p className="text-text-muted text-sm mt-2 font-medium">
             You have scanned or refreshed this history token too many times in a short period. Please wait 1 minute before trying again.
           </p>
         </div>
@@ -173,13 +173,13 @@ export default async function PublicQRPage({
 
   if (data.status === 'revoked') {
     return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4">
-        <div className="w-full max-w-md bg-slate-900 border border-red-500/20 p-8 rounded-2xl text-center shadow-xl">
-          <div className="w-12 h-12 rounded-full bg-red-500/10 text-red-400 flex items-center justify-center mx-auto text-xl mb-4 font-bold">
+      <div className="min-h-screen bg-surface-base flex items-center justify-center p-4">
+        <div className="w-full max-w-md bg-surface-raised border border-danger/25 p-8 rounded-2xl text-center shadow-xl">
+          <div className="w-12 h-12 rounded-full bg-danger/10 text-danger flex items-center justify-center mx-auto text-xl mb-4 font-bold">
             !
           </div>
-          <h2 className="text-xl font-bold text-slate-100">Carte Désactivée</h2>
-          <p className="text-slate-400 text-sm mt-2">
+          <h2 className="text-xl font-bold text-text-primary">Carte Désactivée</h2>
+          <p className="text-text-muted text-sm mt-2">
             Cette carte d&apos;identité véhicule a été désactivée ou révoquée. Veuillez vous rapprocher de l&apos;accueil de votre garage pour obtenir un remplacement.
           </p>
         </div>
@@ -189,13 +189,13 @@ export default async function PublicQRPage({
 
   if (data.status === 'invalid' || !data.vehicle) {
     return (
-      <div className="min-h-screen bg-slate-950 flex items-center justify-center p-4">
-        <div className="w-full max-w-md bg-slate-900 border border-slate-800 p-8 rounded-2xl text-center shadow-xl">
-          <div className="w-12 h-12 rounded-full bg-slate-800 text-slate-400 flex items-center justify-center mx-auto text-xl mb-4 font-bold">
+      <div className="min-h-screen bg-surface-base flex items-center justify-center p-4">
+        <div className="w-full max-w-md bg-surface-raised border border-border-subtle p-8 rounded-2xl text-center shadow-xl">
+          <div className="w-12 h-12 rounded-full bg-surface-base text-text-muted flex items-center justify-center mx-auto text-xl mb-4 font-bold">
             ?
           </div>
-          <h2 className="text-xl font-bold text-slate-100">Carte Invalide</h2>
-          <p className="text-slate-400 text-sm mt-2">
+          <h2 className="text-xl font-bold text-text-primary">Carte Invalide</h2>
+          <p className="text-text-muted text-sm mt-2">
             Le QR code scanné n&apos;est pas encore associé à un véhicule ou le jeton est invalide.
           </p>
         </div>

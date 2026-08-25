@@ -2,9 +2,23 @@ import React from 'react';
 import { Card, CardHeader, CardTitle, CardContent, Button } from '@/components/ui';
 import FlippablePvcCard from '@/components/FlippablePvcCard';
 
+export interface PvcCardInfo {
+  id?: string;
+  token?: string;
+  serial_label?: string;
+  status: string;
+}
+
+export interface VehiclePvcMeta {
+  plate_number?: string;
+  make?: string;
+  model?: string;
+  year?: number | string;
+}
+
 interface VehiclePvcCardProps {
-  activeCard: any;
-  vehicle: any;
+  activeCard: PvcCardInfo | null;
+  vehicle: VehiclePvcMeta | null;
   onOpenLinkModal: () => void;
   onRevokeCard: () => void;
   isRevoking: boolean;
@@ -39,11 +53,11 @@ export function VehiclePvcCard({
         {activeCard ? (
           <div className="flex flex-col items-center justify-center p-4 bg-surface-base border border-border-subtle rounded-xl">
             <FlippablePvcCard
-              token={activeCard.token}
-              serialLabel={activeCard.serial_label}
+              token={activeCard.token || ''}
+              serialLabel={activeCard.serial_label || ''}
               status={activeCard.status}
               vehiclePlate={vehicle?.plate_number}
-              vehicleMakeModel={`${vehicle?.make} ${vehicle?.model} (${vehicle?.year})`}
+              vehicleMakeModel={`${vehicle?.make || ''} ${vehicle?.model || ''} (${vehicle?.year || ''})`}
               size="md"
               showControls={true}
             />

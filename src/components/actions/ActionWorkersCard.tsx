@@ -1,5 +1,6 @@
 import React from 'react';
 import { Card, CardHeader, CardTitle, CardContent, Button, Badge } from '@/components/ui';
+import { useI18n } from '@/lib/i18n/I18nProvider';
 
 export interface WorkerAssignment {
   assignment_id?: string;
@@ -23,24 +24,26 @@ export function ActionWorkersCard({
   onRemoveWorker,
   role,
 }: ActionWorkersCardProps) {
+  const { t } = useI18n();
+
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Équipe & Intervenants Atelier</CardTitle>
+        <CardTitle>{t.workers.title}</CardTitle>
         {role !== 'technician' && (
           <Button variant="ghost" size="sm" onClick={onOpenAssignModal}>
-            Assigner
+            {t.workers.addWorker}
           </Button>
         )}
       </CardHeader>
 
       <CardContent>
         {assignedWorkers.length === 0 ? (
-          <div className="text-center py-6 text-xs text-text-muted">
-            Aucun technicien ou apprenti n&apos;est actuellement assigné.
+          <div className="text-center py-6 text-xs text-text-muted font-sans">
+            {t.common.noData}
           </div>
         ) : (
-          <div className="space-y-2.5">
+          <div className="space-y-2.5 font-sans">
             {assignedWorkers.map((w) => (
               <div
                 key={w.worker_id}
@@ -69,7 +72,7 @@ export function ActionWorkersCard({
                     <button
                       type="button"
                       onClick={() => onRemoveWorker(w.worker_id)}
-                      className="text-text-muted hover:text-danger p-1 rounded transition-colors"
+                      className="text-text-muted hover:text-danger p-1 rounded transition-colors cursor-pointer"
                     >
                       <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />

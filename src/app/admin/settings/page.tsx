@@ -8,7 +8,6 @@ import {
   CardHeader,
   CardTitle,
   CardContent,
-  CardFooter,
   Button,
   Input,
   Select,
@@ -96,25 +95,25 @@ export default function WorkshopSettingsPage() {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-3">
         <Spinner size="lg" />
-        <p className="text-xs text-text-muted">Chargement des paramètres d&apos;atelier...</p>
+        <p className="text-xs text-text-muted font-medium">{t.common.loading}</p>
       </div>
     );
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-8 max-w-5xl mx-auto pb-16">
+    <form onSubmit={handleSubmit} className="space-y-8 max-w-5xl mx-auto pb-16 font-sans">
       <PageHeader
-        title="Paramètres de l'Atelier"
-        subtitle="Identité de l'entreprise, coordonnées de facturation, logo et préférences linguistiques"
+        title={t.settings.title}
+        subtitle={t.settings.subtitle}
         breadcrumbs={[
-          { label: 'Tableau de bord', href: '/admin' },
-          { label: 'Paramètres' },
+          { label: t.common.dashboard, href: '/admin' },
+          { label: t.sidebar.settings },
         ]}
       />
 
       {success && (
         <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 text-xs font-semibold">
-          Paramètres enregistrés avec succès !
+          {t.settings.savedSuccessfully}
         </div>
       )}
       {error && (
@@ -131,26 +130,26 @@ export default function WorkshopSettingsPage() {
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Input
-              label="Raison Sociale de l'Atelier"
+              label={t.settings.garageName}
               required
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
             />
             <Input
-              label="Téléphone d'Atelier"
+              label={t.settings.phone}
               value={formData.phone}
               onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
             />
           </div>
 
           <Input
-            label="Adresse de l'Atelier"
+            label={t.settings.address}
             value={formData.address}
             onChange={(e) => setFormData({ ...formData, address: e.target.value })}
           />
 
           <Input
-            label="URL du Logo de l'Établissement"
+            label={t.settings.logoUrl}
             placeholder="https://..."
             value={formData.logo_url}
             onChange={(e) => setFormData({ ...formData, logo_url: e.target.value })}
@@ -166,7 +165,7 @@ export default function WorkshopSettingsPage() {
         <CardContent className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <Select
-              label="Langue de l'Interface"
+              label={t.settings.defaultLocale}
               value={formData.locale}
               onChange={(e) => setFormData({ ...formData, locale: e.target.value })}
             >
@@ -176,7 +175,7 @@ export default function WorkshopSettingsPage() {
             </Select>
 
             <Select
-              label="Devise Comptable"
+              label={t.settings.currency}
               value={formData.currency}
               onChange={(e) => setFormData({ ...formData, currency: e.target.value })}
             >
@@ -186,7 +185,7 @@ export default function WorkshopSettingsPage() {
             </Select>
 
             <Select
-              label="Fuseau Horaire"
+              label={t.settings.timezone}
               value={formData.timezone}
               onChange={(e) => setFormData({ ...formData, timezone: e.target.value })}
             >
@@ -200,7 +199,7 @@ export default function WorkshopSettingsPage() {
       {/* Form Submission */}
       <div className="flex justify-end pt-4 border-t border-border-subtle">
         <Button type="submit" isLoading={saving}>
-          Enregistrer les Paramètres
+          {t.common.save}
         </Button>
       </div>
     </form>

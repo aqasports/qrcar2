@@ -168,18 +168,31 @@ export async function dispatchNotification(notificationId: string) {
 }
 
 /**
- * Process pending notifications in queue
+ * Process pending notifications in queue (tenant-scoped or global)
  */
-export async function processNotificationQueue(limit = 20) {
-  const pending = await sql(
-    `
-    SELECT id FROM notification_queue 
-    WHERE status IN ('pending', 'retrying') 
-    ORDER BY created_at ASC 
-    LIMIT $1
-  `,
-    [limit]
-  );
+export async function processNotificationQueue(limit = 20, organizationId?: string) {
+  let pending;
+  if (organizationId) {
+    pending = await sql(
+      `
+      SELECT id FROM notification_queue 
+      WHERE status IN ('pending', 'retrying') AND organization_id = $2
+      ORDER BY created_at ASC 
+      LIMIT $1
+    `,
+      [limit, organizationId]
+    );
+  } else {
+    pending = await sql(
+      `
+      SELECT id FROM notification_queue 
+      WHERE status IN ('pending', 'retrying') 
+      ORDER BY created_at ASC 
+      LIMIT $1
+    `,
+      [limit]
+    );
+  }
 
   const results = [];
   for (const item of pending) {

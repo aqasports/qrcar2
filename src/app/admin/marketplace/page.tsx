@@ -19,6 +19,7 @@ import {
   Spinner,
   EmptyState,
 } from '@/components/ui';
+import { useI18n } from '@/lib/i18n/I18nProvider';
 
 const CATEGORIES = [
   { id: 'all', label: 'Toutes les Catégories' },
@@ -32,14 +33,16 @@ const CATEGORIES = [
   { id: 'climatisation', label: 'Climatisation & Chauffage' },
 ];
 
-const CONDITIONS: Record<string, { label: string; variant: 'success' | 'info' | 'warning' | 'neutral' }> = {
-  new_oem: { label: 'Neuf Origine (OEM)', variant: 'success' },
-  new_aftermarket: { label: 'Neuf Adaptable Certifié', variant: 'info' },
-  used_tested: { label: 'Occasion Testée', variant: 'warning' },
-  refurbished: { label: 'Reconditionné Atelier', variant: 'neutral' },
-};
-
 export default function MarketplaceBrowsePage() {
+  const { t } = useI18n();
+
+  const CONDITIONS: Record<string, { label: string; variant: 'success' | 'info' | 'warning' | 'neutral' }> = {
+    new_oem: { label: t.marketplace.conditionNew, variant: 'success' },
+    new_aftermarket: { label: 'Neuf Adaptable Certifié', variant: 'info' },
+    used_tested: { label: t.marketplace.conditionUsed, variant: 'warning' },
+    refurbished: { label: t.marketplace.conditionRefurbished, variant: 'neutral' },
+  };
+
   const [listings, setListings] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -124,13 +127,13 @@ export default function MarketplaceBrowsePage() {
   };
 
   return (
-    <div className="space-y-8 max-w-7xl mx-auto pb-16">
+    <div className="space-y-8 max-w-7xl mx-auto pb-16 font-sans">
       <PageHeader
-        title="Place de Marché B2B — Pièces Inter-Garages"
-        subtitle="Réseau professionnel de négoce de pièces détachées, composants reconditionnés et surstocks entre ateliers algériens"
+        title={t.marketplace.title}
+        subtitle={t.marketplace.subtitle}
         breadcrumbs={[
-          { label: 'Tableau de bord', href: '/admin' },
-          { label: 'Marketplace Pièces' },
+          { label: t.common.dashboard, href: '/admin' },
+          { label: t.sidebar.marketplace },
         ]}
         actions={
           <div className="flex items-center gap-2.5 flex-wrap">
@@ -154,7 +157,7 @@ export default function MarketplaceBrowsePage() {
                   </svg>
                 }
               >
-                Publier une Pièce
+                {t.marketplace.publishListing}
               </Button>
             </Link>
           </div>
@@ -165,7 +168,7 @@ export default function MarketplaceBrowsePage() {
       <form onSubmit={handleSearchSubmit} className="p-4 rounded-2xl bg-surface-raised border border-border-subtle grid grid-cols-1 sm:grid-cols-4 gap-3">
         <div className="sm:col-span-2">
           <Input
-            placeholder="Rechercher par désignation, référence OEM..."
+            placeholder={t.marketplace.searchPlaceholder}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
           />
@@ -186,7 +189,7 @@ export default function MarketplaceBrowsePage() {
           value={wilaya}
           onChange={(e) => setWilaya(e.target.value)}
         >
-          <option value="all">Toutes les Wilayas</option>
+          <option value="all">{t.marketplace.allWilayas}</option>
           {ALGERIA_WILAYAS.map((w) => (
             <option key={w.code} value={w.name}>
               {w.code} - {w.name}
@@ -199,16 +202,16 @@ export default function MarketplaceBrowsePage() {
       {loading ? (
         <div className="flex flex-col items-center justify-center min-h-[40vh] gap-3">
           <Spinner size="lg" />
-          <p className="text-xs text-text-muted">Recherche des pièces sur le réseau...</p>
+          <p className="text-xs text-text-muted">{t.common.loading}</p>
         </div>
       ) : listings.length === 0 ? (
         <EmptyState
-          title="Aucune annonce trouvée"
-          description="Aucune pièce ne correspond à vos filtres actuels. Modifiez vos critères ou publiez une recherche."
+          title={t.common.empty}
+          description={t.marketplace.noListings}
           action={
             <Link href="/admin/marketplace/new">
               <Button variant="primary" size="sm">
-                Publier une Première Annonce
+                {t.marketplace.publishListing}
               </Button>
             </Link>
           }
@@ -246,7 +249,7 @@ export default function MarketplaceBrowsePage() {
                         <span className="text-xs font-bold text-text-primary block">{item.org_name || 'Garage Partenaire'}</span>
                       </div>
                       <div className="text-right">
-                        <span className="text-[10px] uppercase font-bold text-text-muted block">Quantité</span>
+                        <span className="text-[10px] uppercase font-bold text-text-muted block">{t.common.quantity}</span>
                         <span className="text-xs font-mono font-bold text-text-primary">{item.quantity} u</span>
                       </div>
                     </div>
@@ -256,7 +259,7 @@ export default function MarketplaceBrowsePage() {
                 <CardFooter className="pt-4 border-t border-border-subtle flex items-center justify-between">
                   <div>
                     <span className="text-lg font-black font-mono text-accent">
-                      {Number(item.price).toLocaleString()} DZD
+                      {Number(item.price).toLocaleString()} {t.common.currency}
                     </span>
                   </div>
                   <Button
@@ -270,7 +273,7 @@ export default function MarketplaceBrowsePage() {
                       setInquirySuccess('');
                     }}
                   >
-                    Contacter / Négocier
+                    {t.marketplace.contactSeller}
                   </Button>
                 </CardFooter>
               </Card>
@@ -283,8 +286,8 @@ export default function MarketplaceBrowsePage() {
       <Modal
         isOpen={Boolean(selectedListing)}
         onClose={() => setSelectedListing(null)}
-        title="Négocier / Contacter l'Atelier"
-        description={selectedListing ? `${selectedListing.title} (${selectedListing.price?.toLocaleString()} DZD)` : ''}
+        title={t.marketplace.contactSeller}
+        description={selectedListing ? `${selectedListing.title} (${selectedListing.price?.toLocaleString()} ${t.common.currency})` : ''}
       >
         <form onSubmit={handleSendInquiry} className="space-y-4">
           {inquiryError && (
@@ -309,14 +312,14 @@ export default function MarketplaceBrowsePage() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <Input
-              label="Proposition Tarifaire (DZD, Optionnel)"
+              label={`Proposition Tarifaire (${t.common.currency}, Optionnel)`}
               type="number"
               placeholder={selectedListing?.price?.toString()}
               value={proposedPrice}
               onChange={(e) => setProposedPrice(e.target.value)}
             />
             <Input
-              label="Votre Téléphone Direct"
+              label={t.clients.phone}
               type="tel"
               placeholder="0550 12 34 56"
               value={buyerPhone}
@@ -326,10 +329,10 @@ export default function MarketplaceBrowsePage() {
 
           <div className="flex gap-2.5 pt-3">
             <Button type="submit" isLoading={sendingInquiry} className="flex-1">
-              Envoyer la Demande
+              {t.messages.send}
             </Button>
             <Button type="button" variant="secondary" onClick={() => setSelectedListing(null)} className="flex-1">
-              Fermer
+              {t.common.cancel}
             </Button>
           </div>
         </form>

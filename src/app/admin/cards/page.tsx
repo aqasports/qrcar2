@@ -55,11 +55,12 @@ export default function CardsPage() {
     setLoading(true);
     try {
       const res = await fetch('/api/cards');
-      const data = await res.json();
-      if (Array.isArray(data)) {
-        setCards(data);
-        if (data.length > 0 && !selectedPreviewCard) {
-          setSelectedPreviewCard(data[0]);
+      const json = await res.json();
+      const rawList = json?.data !== undefined ? json.data : json;
+      if (Array.isArray(rawList)) {
+        setCards(rawList);
+        if (rawList.length > 0 && !selectedPreviewCard) {
+          setSelectedPreviewCard(rawList[0]);
         }
       }
     } catch (err) {

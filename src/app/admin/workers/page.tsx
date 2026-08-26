@@ -1,23 +1,20 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useSession } from 'next-auth/react';
 import {
   PageHeader,
-  Table,
-  TableHeader,
-  TableBody,
-  TableRow,
-  TableHead,
-  TableCell,
-  TableLoadingState,
-  TableEmptyState,
+  DataTable,
+  ColumnDef,
   Badge,
   Button,
   Input,
   Select,
   Modal,
+  CurrencyDisplay,
 } from '@/components/ui';
+import { useToast } from '@/lib/hooks/useToast';
+import { useI18n } from '@/lib/i18n/I18nProvider';
 
 interface Worker {
   id: string;
@@ -37,7 +34,9 @@ interface UserAccount {
 
 export default function WorkersPage() {
   const { data: session } = useSession();
+  const { t } = useI18n();
   const userRole = session?.user?.role;
+  const { toast } = useToast();
 
   const [workers, setWorkers] = useState<Worker[]>([]);
   const [users, setUsers] = useState<UserAccount[]>([]);
@@ -56,39 +55,41 @@ export default function WorkersPage() {
   const [formError, setFormError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
-  const fetchWorkers = async () => {
+  const fetchWorkers = useCallback(async () => {
     setLoading(true);
     try {
       const res = await fetch('/api/workers');
-      const data = await res.json();
-      if (Array.isArray(data)) {
-        setWorkers(data);
+      const json = await res.json();
+      const rawList = json?.data !== undefined ? json.data : json;
+      if (Array.isArray(rawList)) {
+        setWorkers(rawList);
       }
     } catch (err) {
-      console.error(err);
+      console.error('Failed to fetch workers:', err);
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const fetchUsers = async () => {
+  const fetchUsers = useCallback(async () => {
     try {
       const res = await fetch('/api/users');
-      const data = await res.json();
-      if (Array.isArray(data)) {
-        setUsers(data);
+      const json = await res.json();
+      const rawList = json?.data !== undefined ? json.data : json;
+      if (Array.isArray(rawList)) {
+        setUsers(rawList);
       }
     } catch (err) {
-      console.error(err);
+      console.error('Failed to fetch users:', err);
     }
-  };
+  }, []);
 
   useEffect(() => {
     if (userRole && userRole !== 'technician') {
       fetchWorkers();
       fetchUsers();
     }
-  }, [userRole]);
+  }, [userRole, fetchWorkers, fetchUsers]);
 
   const handleOpenCreate = () => {
     setIsEditing(false);
@@ -120,10 +121,16 @@ export default function WorkersPage() {
     setSubmitting(true);
     setFormError('');
 
+    if (!fullName.trim() || !roleInput.trim()) {
+      setFormError('Le nom et la spécialité sont obligatoires.');
+      setSubmitting(false);
+      return;
+    }
+
     const payload = {
-      full_name: fullName,
-      phone: phone || null,
-      role: roleInput,
+      full_name: fullName.trim(),
+      phone: phone.trim() || null,
+      role: roleInput.trim(),
       hourly_rate: parseFloat(hourlyRate) || 0,
       user_id: linkedUserId || null,
       active,
@@ -142,13 +149,16 @@ export default function WorkersPage() {
       const data = await res.json();
 
       if (!res.ok) {
-        setFormError(data.error || 'Erreur lors de la sauvegarde');
-      } else {
-        setShowModal(false);
-        fetchWorkers();
+        throw new Error(data.error || 'Erreur lors de la sauvegarde.');
       }
-    } catch (err) {
-      setFormError('Erreur de communication avec le serveur.');
+
+      toast.success(isEditing ? 'Fiche collaborateur mise à jour.' : 'Nouveau collaborateur enregistré.');
+      setShowModal(false);
+      fetchWorkers();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Erreur de communication.';
+      setFormError(msg);
+      toast.error(msg);
     } finally {
       setSubmitting(false);
     }
@@ -156,23 +166,92 @@ export default function WorkersPage() {
 
   if (userRole === 'technician') {
     return (
-      <div className="text-danger p-8 text-center bg-surface-raised border border-danger/20 rounded-2xl max-w-xl mx-auto space-y-2">
-        <h3 className="font-bold">Accès Restreint</h3>
-        <p className="text-xs text-text-muted">
+      <div className="p-8 text-center bg-surface-raised border border-rose-500/20 rounded-2xl max-w-xl mx-auto space-y-2">
+        <h3 className="font-bold text-text-primary">Accès Restreint</h3>
+        <p className="text-xs text-text-muted leading-relaxed">
           La gestion des techniciens et des taux horaires est réservée aux responsables d&apos;atelier.
         </p>
       </div>
     );
   }
 
+  const columns: ColumnDef<Worker>[] = [
+    {
+      key: 'full_name',
+      header: t.workers.fullName,
+      sortable: true,
+      render: (w) => (
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-xl bg-surface-base border border-border-default flex items-center justify-center font-bold text-xs text-accent font-mono shadow-xs">
+            {w.full_name.charAt(0)}
+          </div>
+          <div>
+            <span className="font-bold text-text-primary block">{w.full_name}</span>
+            <span className="text-[11px] text-text-muted">{w.role}</span>
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: 'phone',
+      header: t.workers.phone,
+      sortable: true,
+      render: (w) => (
+        <span className="font-mono text-xs text-text-secondary">
+          {w.phone || '—'}
+        </span>
+      ),
+    },
+    {
+      key: 'hourly_rate',
+      header: t.actions.laborCost,
+      sortable: true,
+      align: 'right',
+      render: (w) => (
+        <div className="text-right">
+          <CurrencyDisplay amount={w.hourly_rate} size="sm" className="text-accent font-bold" />
+          <span className="text-[10px] text-text-muted font-sans block">/ h</span>
+        </div>
+      ),
+    },
+    {
+      key: 'active',
+      header: t.common.status,
+      sortable: true,
+      render: (w) => (
+        <Badge variant={w.active ? 'success' : 'neutral'}>
+          {w.active ? t.workers.statusActive : t.workers.statusInactive}
+        </Badge>
+      ),
+    },
+    {
+      key: 'actions',
+      header: t.common.actions_label,
+      align: 'right',
+      render: (w) => (
+        <Button variant="ghost" size="xs" onClick={() => handleOpenEdit(w)}>
+          {t.common.edit}
+        </Button>
+      ),
+    },
+  ];
+
+  const userOptions = [
+    { value: '', label: '-- Aucun compte utilisateur lié --' },
+    ...users.map((u) => ({
+      value: u.id,
+      label: `${u.username} (${u.role})`,
+    })),
+  ];
+
   return (
-    <div className="space-y-6 max-w-7xl mx-auto pb-16">
+    <div className="space-y-6 max-w-7xl mx-auto pb-16 font-sans">
       <PageHeader
-        title="Équipe & Techniciens Atelier"
-        subtitle="Gestion des collaborateurs, des qualifications et des assignations sur les ordres de réparation"
+        title={t.workers.title}
+        subtitle={t.workers.subtitle}
         breadcrumbs={[
-          { label: 'Tableau de bord', href: '/admin' },
-          { label: 'Techniciens' },
+          { label: t.common.dashboard, href: '/admin' },
+          { label: t.workers.title.split('&')[0] },
         ]}
         actions={
           <Button
@@ -180,115 +259,86 @@ export default function WorkersPage() {
             size="sm"
             onClick={handleOpenCreate}
             leftIcon={
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
               </svg>
             }
           >
-            Nouveau Collaborateur
+            {t.workers.addWorker}
           </Button>
         }
       />
 
-      <Table>
-        <TableHeader>
-          <tr>
-            <TableHead>Nom & Prénom</TableHead>
-            <TableHead>Rôle & Spécialité</TableHead>
-            <TableHead>Téléphone</TableHead>
-            <TableHead className="text-right">Taux Horaire</TableHead>
-            <TableHead>Statut</TableHead>
-            <TableHead className="text-right">Action</TableHead>
-          </tr>
-        </TableHeader>
-        <TableBody>
-          {loading ? (
-            <TableLoadingState colSpan={6} message="Chargement de l'équipe..." />
-          ) : workers.length === 0 ? (
-            <TableEmptyState
-              colSpan={6}
-              title="Aucun intervenant enregistré"
-              description="Ajoutez des mécaniciens ou électriciens pour pouvoir les assigner aux interventions."
-              action={
-                <Button variant="primary" size="sm" onClick={handleOpenCreate}>
-                  Ajouter un Premier Technicien
-                </Button>
-              }
-            />
-          ) : (
-            workers.map((w) => (
-              <TableRow key={w.id}>
-                <TableCell className="font-bold text-text-primary">
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-surface-overlay border border-border-default flex items-center justify-center font-bold text-xs">
-                      {w.full_name.charAt(0)}
-                    </div>
-                    <span>{w.full_name}</span>
-                  </div>
-                </TableCell>
-                <TableCell className="text-text-secondary">{w.role}</TableCell>
-                <TableCell className="font-mono text-text-muted">{w.phone || '—'}</TableCell>
-                <TableCell className="text-right font-mono font-bold text-accent">
-                  {w.hourly_rate?.toLocaleString()} DZD/h
-                </TableCell>
-                <TableCell>
-                  <Badge variant={w.active ? 'success' : 'neutral'}>
-                    {w.active ? 'Actif' : 'Inactif'}
-                  </Badge>
-                </TableCell>
-                <TableCell className="text-right">
-                  <Button variant="ghost" size="sm" onClick={() => handleOpenEdit(w)}>
-                    Modifier
-                  </Button>
-                </TableCell>
-              </TableRow>
-            ))
-          )}
-        </TableBody>
-      </Table>
+      <DataTable<Worker>
+        columns={columns}
+        data={workers}
+        keyExtractor={(w) => String(w.id)}
+        loading={loading}
+        loadingMessage={t.common.loading}
+        emptyTitle={t.common.empty}
+        emptyDescription={t.common.noData}
+        emptyAction={
+          <Button variant="primary" size="sm" onClick={handleOpenCreate}>
+            {t.workers.addWorker}
+          </Button>
+        }
+        searchPlaceholder={t.workers.searchPlaceholder}
+        pageSize={15}
+      />
 
       {/* Worker Modal */}
       <Modal
         isOpen={showModal}
         onClose={() => setShowModal(false)}
-        title={isEditing ? 'Modifier la Fiche Collaborateur' : 'Ajouter un Collaborateur'}
-        description="Renseignez l'identité, le rôle atelier et les paramètres de facturation horaire."
+        title={isEditing ? t.common.edit : t.workers.addWorker}
+        description={t.workers.subtitle}
+        size="md"
+        footer={
+          <div className="flex items-center justify-end gap-3 w-full">
+            <Button variant="ghost" size="sm" onClick={() => setShowModal(false)} disabled={submitting}>
+              {t.common.cancel}
+            </Button>
+            <Button variant="primary" size="sm" onClick={handleSaveWorker} isLoading={submitting}>
+              {t.common.save}
+            </Button>
+          </div>
+        }
       >
         <form onSubmit={handleSaveWorker} className="space-y-4">
           {formError && (
-            <div className="p-3 rounded-xl bg-danger/10 border border-danger/25 text-danger text-xs font-semibold">
+            <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-400 text-xs font-semibold">
               {formError}
             </div>
           )}
 
           <Input
-            label="Nom & Prénom"
+            label={t.workers.fullName}
             required
             placeholder="ex. Youcef Mansouri"
             value={fullName}
             onChange={(e) => setFullName(e.target.value)}
           />
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Input
-              label="Téléphone"
+              label={t.workers.phone}
               type="tel"
               placeholder="ex. 0661 23 45 67"
               value={phone}
               onChange={(e) => setPhone(e.target.value)}
             />
             <Input
-              label="Rôle / Spécialité"
+              label={t.workers.role}
               required
-              placeholder="ex. Électricien Auto, Chef d'Équipe"
+              placeholder="ex. Électricien Auto, Mécanicien"
               value={roleInput}
               onChange={(e) => setRoleInput(e.target.value)}
             />
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Input
-              label="Taux Horaire (DZD/h)"
+              label={`${t.actions.laborCost} (${t.common.currency}/h)`}
               type="number"
               step="0.01"
               required
@@ -297,17 +347,11 @@ export default function WorkersPage() {
             />
 
             <Select
-              label="Compte Utilisateur Lié (Optionnel)"
+              label="Compte Utilisateur Lié"
               value={linkedUserId}
               onChange={(e) => setLinkedUserId(e.target.value)}
-            >
-              <option value="">-- Aucun compte d&apos;accès --</option>
-              {users.map((u) => (
-                <option key={u.id} value={u.id}>
-                  {u.username} ({u.role})
-                </option>
-              ))}
-            </Select>
+              options={userOptions}
+            />
           </div>
 
           <div className="pt-2">
@@ -316,19 +360,10 @@ export default function WorkersPage() {
                 type="checkbox"
                 checked={active}
                 onChange={(e) => setActive(e.target.checked)}
-                className="w-4 h-4 rounded border-border-default bg-surface-base text-accent"
+                className="w-4 h-4 rounded border-border-default bg-surface-base text-accent focus:ring-accent/20 cursor-pointer"
               />
               <span>Collaborateur actuellement en activité dans l&apos;atelier</span>
             </label>
-          </div>
-
-          <div className="flex gap-2.5 pt-3">
-            <Button type="submit" isLoading={submitting} className="flex-1">
-              {isEditing ? 'Enregistrer les Modifications' : 'Créer la Fiche'}
-            </Button>
-            <Button type="button" variant="secondary" onClick={() => setShowModal(false)} className="flex-1">
-              Annuler
-            </Button>
           </div>
         </form>
       </Modal>

@@ -1,18 +1,26 @@
+@import url('https://fonts.googleapis.com/css2?family=Geist+Mono:wght@300;400;500;600;700;800;900&family=Geist:wght@300;400;500;600;700;800;900&display=swap');
 @import "tailwindcss";
 
 @theme {
+  /* Font Family - Premium Executive Grotesk */
+  --font-sans: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'Geist Mono', 'SF Mono', Monaco, Consolas, monospace;
+
   /* Surfaces - Tier-1 Automotive Midnight Elevation */
+  --color-surface-sunken: #03050a;     /* deepest inset backgrounds */
   --color-surface-base: #060911;       /* deep midnight backdrop */
   --color-surface-raised: #0d1322;     /* structured cards, sidebars */
   --color-surface-overlay: #131c31;    /* dropdowns, modals, popovers */
   --color-surface-hover: #192541;      /* hover states on interactive cards */
   --color-surface-active: #202e50;     /* selected / pressed states */
+  --color-surface-spotlight: rgba(59, 130, 246, 0.08); /* ambient glow */
 
   /* Borders - Precision Hairline Strokes */
   --color-border-subtle: rgba(255, 255, 255, 0.07);
   --color-border-default: rgba(255, 255, 255, 0.12);
   --color-border-strong: rgba(255, 255, 255, 0.22);
   --color-border-accent: rgba(59, 130, 246, 0.40);
+  --color-border-focus: #3b82f6;
 
   /* Typography Colors */
   --color-text-primary: #f8fafc;
@@ -41,6 +49,7 @@
   body {
     background-color: var(--background);
     color: var(--foreground);
+    font-family: var(--font-sans);
     font-feature-settings: "cv02", "cv03", "cv04", "cv11";
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
@@ -66,6 +75,22 @@
   border-color: rgba(59, 130, 246, 0.3);
   box-shadow: inset 0 1px 0 0 rgba(255, 255, 255, 0.1), 0 8px 30px -4px rgba(0, 0, 0, 0.7);
   transform: translateY(-1px);
+}
+
+/* Double-Bezel Hardware Architecture */
+.bezel-outer {
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 1.5rem;
+  padding: 0.375rem;
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.6);
+}
+
+.bezel-inner {
+  background: #0d1322;
+  border-radius: calc(1.5rem - 0.375rem);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  box-shadow: inset 0 1px 1px 0 rgba(255, 255, 255, 0.1);
 }
 
 /* Linear Primary Button */

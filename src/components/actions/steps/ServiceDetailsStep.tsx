@@ -1,6 +1,7 @@
 import React from 'react';
 import { Card, CardHeader, CardTitle, CardContent, Input, Select, Textarea, Badge, Button } from '@/components/ui';
 import { INTERVENTION_TEMPLATES, InterventionTemplate } from '@/lib/intervention-templates';
+import { useI18n } from '@/lib/i18n/I18nProvider';
 
 export interface TelemetryData {
   oilGrade: string;
@@ -84,8 +85,10 @@ export function ServiceDetailsStep({
   checkpointStatus,
   setCheckpointStatus,
 }: ServiceDetailsStepProps) {
+  const { t } = useI18n();
+
   const activeTemplate: InterventionTemplate | undefined = INTERVENTION_TEMPLATES.find(
-    (t) => t.id === activeSpecialtyId
+    (item) => item.id === activeSpecialtyId
   );
 
   const handleCheckpointChange = (checkpointId: string, value: CheckpointStatus) => {
@@ -98,14 +101,14 @@ export function ServiceDetailsStep({
   return (
     <Card>
       <CardHeader>
-        <CardTitle>2. Paramètres & Métier d&apos;Atelier</CardTitle>
+        <CardTitle>2. {t.actions.title}</CardTitle>
       </CardHeader>
 
-      <CardContent className="space-y-6">
+      <CardContent className="space-y-6 font-sans">
         {/* Specialty Selector Chips */}
         <div>
           <label className="block text-xs font-bold text-text-secondary uppercase tracking-wider mb-2">
-            Spécialité & Gabarit d&apos;Intervention
+            {t.actions.serviceType}
           </label>
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
             {INTERVENTION_TEMPLATES.map((tmpl) => {
@@ -132,7 +135,7 @@ export function ServiceDetailsStep({
         {/* Core fields */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <Select
-            label="Type d'Opération"
+            label={t.actions.serviceType}
             required
             value={serviceType}
             onChange={(e) => setServiceType(e.target.value)}
@@ -144,7 +147,7 @@ export function ServiceDetailsStep({
           </Select>
 
           <Input
-            label="Kilométrage Compteur (km)"
+            label={`${t.vehicles.mileage} (km)`}
             type="number"
             required
             value={mileageAtService}
@@ -152,19 +155,19 @@ export function ServiceDetailsStep({
           />
 
           <Select
-            label="Statut Initial"
+            label={t.common.status}
             required
             value={status}
             onChange={(e) => setStatus(e.target.value)}
           >
-            <option value="in_progress">En Cours en Atelier</option>
-            <option value="open">Ouverte / Planifiée</option>
-            <option value="completed">Travaux Terminés</option>
+            <option value="in_progress">{t.actions.statusInProgress}</option>
+            <option value="open">{t.actions.statusPending}</option>
+            <option value="completed">{t.actions.statusCompleted}</option>
           </Select>
         </div>
 
         <Textarea
-          label="Désignation des Travaux"
+          label={t.actions.title}
           required
           rows={3}
           placeholder="Détail des réparations..."
@@ -184,7 +187,7 @@ export function ServiceDetailsStep({
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <Select
-                label="Spécification Huile Moteur"
+                label={t.vehicles.oilType}
                 value={telemetry.oilGrade}
                 onChange={(e) => setTelemetry((prev) => ({ ...prev, oilGrade: e.target.value }))}
               >
@@ -445,11 +448,11 @@ export function ServiceDetailsStep({
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <Select
-            label="Technicien Responsable"
+            label={t.workers.title.split('&')[0]}
             value={leadWorkerId}
             onChange={(e) => setLeadWorkerId(e.target.value)}
           >
-            <option value="">-- Aucun technicien assigné --</option>
+            <option value="">-- {t.workers.title.split('&')[0]} --</option>
             {workers.map((w) => (
               <option key={w.id} value={w.id}>
                 {w.full_name} ({w.role})
@@ -458,7 +461,7 @@ export function ServiceDetailsStep({
           </Select>
 
           <Input
-            label="Temps Alloué (heures)"
+            label={`${t.actions.laborCost} (h)`}
             type="number"
             step="0.5"
             value={workerHours}
@@ -466,7 +469,7 @@ export function ServiceDetailsStep({
           />
 
           <Input
-            label="Main d'œuvre Forfaitaire (DZD)"
+            label={`${t.actions.laborCost} (${t.common.currency})`}
             type="number"
             step="0.01"
             value={laborCost}

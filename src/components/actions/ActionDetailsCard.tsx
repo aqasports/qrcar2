@@ -1,6 +1,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { Card, CardHeader, CardTitle, CardContent, Button, Input, Select, Textarea } from '@/components/ui';
+import { useI18n } from '@/lib/i18n/I18nProvider';
 
 export interface ActionDetailData {
   id: string;
@@ -61,29 +62,31 @@ export function ActionDetailsCard({
   formState,
   role,
 }: ActionDetailsCardProps) {
+  const { t } = useI18n();
+
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Détails & Paramètres de l&apos;Intervention</CardTitle>
+        <CardTitle>{t.actions.title}</CardTitle>
         {!isEditing && role !== 'technician' && (
           <Button variant="ghost" size="sm" onClick={onStartEdit}>
-            Modifier
+            {t.common.edit}
           </Button>
         )}
       </CardHeader>
 
-      <CardContent>
+      <CardContent className="font-sans">
         {isEditing ? (
           <form onSubmit={onSave} className="space-y-4">
             {formState.actionError && (
-              <div className="p-3 rounded-xl bg-danger/10 border border-danger/25 text-danger text-xs">
+              <div className="p-3 rounded-xl bg-danger/10 border border-danger/25 text-danger text-xs font-semibold">
                 {formState.actionError}
               </div>
             )}
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <Select
-                label="Type d'Opération"
+                label={t.actions.serviceType}
                 value={formState.serviceType}
                 onChange={(e) => formState.setServiceType(e.target.value)}
               >
@@ -98,19 +101,19 @@ export function ActionDetailsCard({
               </Select>
 
               <Select
-                label="État d'Avancement"
+                label={t.common.status}
                 value={formState.status}
                 onChange={(e) => formState.setStatus(e.target.value)}
               >
-                <option value="open">Ouverte / En attente</option>
-                <option value="in_progress">En Cours en Atelier</option>
-                <option value="completed">Travaux Terminés</option>
-                <option value="invoiced">Facturée & Clôturée</option>
+                <option value="open">{t.actions.statusPending}</option>
+                <option value="in_progress">{t.actions.statusInProgress}</option>
+                <option value="completed">{t.actions.statusCompleted}</option>
+                <option value="invoiced">{t.invoices.statusIssued}</option>
               </Select>
             </div>
 
             <Textarea
-              label="Description des Travaux"
+              label={t.actions.title}
               required
               rows={3}
               value={formState.description}
@@ -119,14 +122,14 @@ export function ActionDetailsCard({
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <Input
-                label="Kilométrage Compteur (km)"
+                label={`${t.vehicles.mileage} (km)`}
                 type="number"
                 required
                 value={formState.mileage}
                 onChange={(e) => formState.setMileage(e.target.value)}
               />
               <Input
-                label="Main d'œuvre (DZD)"
+                label={`${t.actions.laborCost} (${t.common.currency})`}
                 type="number"
                 step="0.01"
                 value={formState.laborCost}
@@ -136,14 +139,14 @@ export function ActionDetailsCard({
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <Input
-                label="Date d'Entrée"
+                label={t.actions.dateIn}
                 type="date"
                 required
                 value={formState.dateIn}
                 onChange={(e) => formState.setDateIn(e.target.value)}
               />
               <Input
-                label="Date de Sortie / Restitution"
+                label={t.actions.dateOut}
                 type="date"
                 value={formState.dateOut}
                 onChange={(e) => formState.setDateOut(e.target.value)}
@@ -169,10 +172,10 @@ export function ActionDetailsCard({
 
             <div className="flex gap-2.5 pt-3">
               <Button type="submit" isLoading={saving} className="flex-1">
-                Enregistrer les Modifications
+                {t.common.save}
               </Button>
               <Button type="button" variant="secondary" onClick={onCancelEdit} className="flex-1">
-                Annuler
+                {t.common.cancel}
               </Button>
             </div>
           </form>
@@ -181,7 +184,7 @@ export function ActionDetailsCard({
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <span className="text-[11px] text-text-muted font-bold uppercase tracking-wider block">
-                  Véhicule & Immatriculation
+                  {t.vehicles.plate}
                 </span>
                 <Link
                   href={`/admin/vehicles/${action.vehicle_id}`}
@@ -192,7 +195,7 @@ export function ActionDetailsCard({
               </div>
               <div>
                 <span className="text-[11px] text-text-muted font-bold uppercase tracking-wider block">
-                  Propriétaire Client
+                  {t.clients.fullName}
                 </span>
                 <span className="text-text-primary font-semibold mt-0.5 block">
                   {action.client_name}
@@ -202,7 +205,7 @@ export function ActionDetailsCard({
 
             <div className="border-t border-border-subtle pt-3">
               <span className="text-[11px] text-text-muted font-bold uppercase tracking-wider block">
-                Description de l&apos;Intervention
+                {t.actions.title}
               </span>
               <p className="text-text-secondary mt-1 leading-relaxed whitespace-pre-wrap">
                 {action.description}
@@ -211,21 +214,21 @@ export function ActionDetailsCard({
 
             <div className="grid grid-cols-3 gap-3 border-t border-border-subtle pt-3">
               <div>
-                <span className="text-[11px] text-text-muted font-bold uppercase tracking-wider block">Kilométrage</span>
+                <span className="text-[11px] text-text-muted font-bold uppercase tracking-wider block">{t.vehicles.mileage}</span>
                 <span className="text-text-primary font-mono font-bold mt-0.5 block">
                   {action.mileage_at_service?.toLocaleString()} km
                 </span>
               </div>
               <div>
-                <span className="text-[11px] text-text-muted font-bold uppercase tracking-wider block">Date Entrée</span>
+                <span className="text-[11px] text-text-muted font-bold uppercase tracking-wider block">{t.actions.dateIn}</span>
                 <span className="text-text-secondary mt-0.5 block">
-                  {new Date(action.date_in).toLocaleDateString('fr-FR')}
+                  {new Date(action.date_in).toLocaleDateString()}
                 </span>
               </div>
               <div>
-                <span className="text-[11px] text-text-muted font-bold uppercase tracking-wider block">Date Sortie</span>
+                <span className="text-[11px] text-text-muted font-bold uppercase tracking-wider block">{t.actions.dateOut}</span>
                 <span className="text-text-secondary mt-0.5 block">
-                  {action.date_out ? new Date(action.date_out).toLocaleDateString('fr-FR') : 'En cours'}
+                  {action.date_out ? new Date(action.date_out).toLocaleDateString() : 'En cours'}
                 </span>
               </div>
             </div>

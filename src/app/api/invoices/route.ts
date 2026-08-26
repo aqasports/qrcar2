@@ -79,26 +79,53 @@ export async function POST(req: NextRequest) {
 
     const action = actionRows[0];
 
-    // 2. Fetch parts attached to this action within organization
-    const partsUsed = await sql(
+    // 2. Fetch items (or legacy parts) attached to this action within organization
+    let roItems = await sql(
       `
-      SELECT ap.quantity, ap.unit_price_snapshot, p.name, p.sku
-      FROM action_parts ap
-      JOIN parts p ON ap.part_id = p.id AND p.organization_id = $2
-      WHERE ap.action_id = $1
+      SELECT roi.quantity, roi.unit_price, roi.name, roi.item_type
+      FROM repair_order_items roi
+      WHERE roi.action_id = $1
     `,
-      [action_id, organizationId]
+      [action_id]
     );
 
-    // 3. Compute costs
-    const labor = parseFloat(action.labor_cost) || 0.0;
-    let partsSum = 0;
-    for (const p of partsUsed) {
-      partsSum += p.quantity * parseFloat(p.unit_price_snapshot);
+    let partsUsed: any[] = [];
+    let itemsSum = 0;
+
+    if (roItems.length > 0) {
+      for (const item of roItems) {
+        const lineTotal = parseFloat(String(item.quantity)) * parseFloat(String(item.unit_price));
+        itemsSum += lineTotal;
+        partsUsed.push({
+          quantity: parseFloat(String(item.quantity)),
+          unit_price_snapshot: parseFloat(String(item.unit_price)),
+          name: item.name,
+          sku: item.item_type === 'part' ? 'PIECE' : 'PRESTATION',
+        });
+      }
+    } else {
+      // Legacy fallback to action_parts
+      partsUsed = await sql(
+        `
+        SELECT ap.quantity, ap.unit_price_snapshot, p.name, p.sku
+        FROM action_parts ap
+        JOIN parts p ON ap.part_id = p.id AND p.organization_id = $2
+        WHERE ap.action_id = $1
+      `,
+        [action_id, organizationId]
+      );
+      for (const p of partsUsed) {
+        itemsSum += p.quantity * parseFloat(p.unit_price_snapshot);
+      }
     }
 
-    const subtotal = labor + partsSum;
-    const taxAmount = subtotal * 0.19; // 19% standard VAT
+    // 3. Compute costs & Tax
+    const labor = parseFloat(action.labor_cost) || 0.0;
+    const subtotal = labor + itemsSum;
+
+    const isTaxActive = action.has_tax !== false && action.has_tax !== 0;
+    const taxRatePercent = isTaxActive ? (parseFloat(action.tax_rate) || 19.0) : 0.0;
+    const taxAmount = subtotal * (taxRatePercent / 100);
     const total = subtotal + taxAmount;
 
     // 4. Check if invoice already exists

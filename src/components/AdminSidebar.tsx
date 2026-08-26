@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import SignOutButton from '@/app/admin/SignOutButton';
 import { Badge } from '@/components/ui';
+import { useI18n } from '@/lib/i18n/I18nProvider';
 
 interface NavSection {
   title: string;
@@ -32,6 +33,7 @@ export default function AdminSidebar({
   username: string;
 }) {
   const pathname = usePathname();
+  const { t, dir } = useI18n();
   const [unreadMessages, setUnreadMessages] = useState(0);
 
   useEffect(() => {
@@ -53,10 +55,10 @@ export default function AdminSidebar({
 
   const sections: NavSection[] = [
     {
-      title: 'Cockpit & Télémétrie',
+      title: t.sidebar.sectionDashboard,
       items: [
         {
-          name: 'Tableau de Bord',
+          name: t.sidebar.dashboard,
           href: '/admin',
           roles: ['owner', 'super_admin', 'manager', 'technician', 'platform_admin'],
           icon: (
@@ -66,7 +68,7 @@ export default function AdminSidebar({
           ),
         },
         {
-          name: 'Rendez-Vous (RDV)',
+          name: t.sidebar.appointments,
           href: '/admin/appointments',
           roles: ['owner', 'super_admin', 'manager', 'technician', 'platform_admin'],
           icon: (
@@ -78,10 +80,10 @@ export default function AdminSidebar({
       ],
     },
     {
-      title: 'Atelier & Opérations',
+      title: t.sidebar.sectionOperations,
       items: [
         {
-          name: 'Parc Véhicules',
+          name: t.sidebar.vehicles,
           href: '/admin/vehicles',
           roles: ['owner', 'super_admin', 'manager', 'technician', 'platform_admin'],
           badge: 'VIN Auto-Fill',
@@ -93,7 +95,7 @@ export default function AdminSidebar({
           ),
         },
         {
-          name: 'Clients & Passeports',
+          name: t.sidebar.clients,
           href: '/admin/clients',
           roles: ['owner', 'super_admin', 'manager', 'technician', 'platform_admin'],
           icon: (
@@ -103,7 +105,7 @@ export default function AdminSidebar({
           ),
         },
         {
-          name: 'Interventions & OR',
+          name: t.sidebar.actions,
           href: '/admin/actions',
           roles: ['owner', 'super_admin', 'manager', 'technician', 'platform_admin'],
           icon: (
@@ -113,7 +115,19 @@ export default function AdminSidebar({
           ),
         },
         {
-          name: 'Stock & Pièces Magasin',
+          name: t.sidebar.repairTemplates,
+          href: '/admin/repair-templates',
+          roles: ['owner', 'super_admin', 'manager', 'platform_admin'],
+          badge: 'Nouveau',
+          badgeColor: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30',
+          icon: (
+            <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+            </svg>
+          ),
+        },
+        {
+          name: t.sidebar.inventory,
           href: '/admin/inventory',
           roles: ['owner', 'super_admin', 'manager', 'platform_admin'],
           icon: (
@@ -123,7 +137,7 @@ export default function AdminSidebar({
           ),
         },
         {
-          name: 'Devis & Facturation',
+          name: t.sidebar.invoices,
           href: '/admin/invoices',
           roles: ['owner', 'super_admin', 'manager', 'platform_admin'],
           icon: (
@@ -135,10 +149,10 @@ export default function AdminSidebar({
       ],
     },
     {
-      title: 'Écosystème B2B & Réseau',
+      title: t.sidebar.sectionB2B,
       items: [
         {
-          name: 'Marketplace Pièces',
+          name: t.sidebar.marketplace,
           href: '/admin/marketplace',
           roles: ['owner', 'super_admin', 'manager', 'technician', 'platform_admin'],
           badge: 'B2B',
@@ -150,7 +164,7 @@ export default function AdminSidebar({
           ),
         },
         {
-          name: 'Diagnostic & Pannes (DTC)',
+          name: t.sidebar.knowledgebase,
           href: '/admin/knowledgebase',
           roles: ['owner', 'super_admin', 'manager', 'technician', 'platform_admin'],
           badge: 'OBD-II',
@@ -162,10 +176,10 @@ export default function AdminSidebar({
           ),
         },
         {
-          name: 'Messagerie Inter-Garages',
+          name: t.sidebar.messages,
           href: '/admin/messages',
           roles: ['owner', 'super_admin', 'manager', 'technician', 'platform_admin'],
-          badge: unreadMessages > 0 ? `${unreadMessages} non lu` : undefined,
+          badge: unreadMessages > 0 ? `${unreadMessages}` : undefined,
           badgeColor: 'bg-accent text-white shadow-sm shadow-blue-500/30',
           icon: (
             <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -174,7 +188,7 @@ export default function AdminSidebar({
           ),
         },
         {
-          name: 'Annuaire National & SEO',
+          name: t.sidebar.directory,
           href: '/admin/directory',
           roles: ['owner', 'super_admin', 'manager', 'platform_admin'],
           icon: (
@@ -186,10 +200,10 @@ export default function AdminSidebar({
       ],
     },
     {
-      title: 'Cartes PVC Connectées',
+      title: t.sidebar.sectionCards,
       items: [
         {
-          name: 'Studio Design CR-80',
+          name: t.sidebar.cardsStudio,
           href: '/admin/cards/studio',
           roles: ['owner', 'super_admin', 'manager', 'platform_admin'],
           badge: '300 DPI',
@@ -201,7 +215,7 @@ export default function AdminSidebar({
           ),
         },
         {
-          name: 'Commander & Réassort',
+          name: t.sidebar.cardsOrder,
           href: '/admin/cards/order',
           roles: ['owner', 'super_admin', 'manager', 'platform_admin'],
           icon: (
@@ -211,22 +225,22 @@ export default function AdminSidebar({
           ),
         },
         {
-          name: 'Inventaire Cartes',
+          name: t.sidebar.cardsOverview,
           href: '/admin/cards',
           roles: ['owner', 'super_admin', 'manager', 'platform_admin'],
           icon: (
             <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
             </svg>
           ),
         },
       ],
     },
     {
-      title: 'Système & Administration',
+      title: t.sidebar.sectionAdmin,
       items: [
         {
-          name: 'Notifications & Alertes',
+          name: t.sidebar.notifications,
           href: '/admin/notifications',
           roles: ['owner', 'super_admin', 'manager', 'platform_admin'],
           icon: (
@@ -236,7 +250,7 @@ export default function AdminSidebar({
           ),
         },
         {
-          name: 'Équipe & Techniciens',
+          name: t.sidebar.workers,
           href: '/admin/workers',
           roles: ['owner', 'super_admin', 'manager', 'platform_admin'],
           icon: (
@@ -246,10 +260,10 @@ export default function AdminSidebar({
           ),
         },
         {
-          name: 'Abonnement Chargily',
+          name: t.sidebar.billing,
           href: '/admin/billing',
           roles: ['owner', 'super_admin', 'manager', 'platform_admin'],
-          badge: 'DZD',
+          badge: 'Chargily',
           badgeColor: 'bg-emerald-500/15 text-emerald-300 border-emerald-500/30',
           icon: (
             <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -258,7 +272,7 @@ export default function AdminSidebar({
           ),
         },
         {
-          name: 'Paramètres Atelier',
+          name: t.sidebar.settings,
           href: '/admin/settings',
           roles: ['owner', 'super_admin', 'platform_admin'],
           icon: (
@@ -269,43 +283,7 @@ export default function AdminSidebar({
           ),
         },
         {
-          name: 'App Store & Extensions',
-          href: '/admin/apps',
-          roles: ['owner', 'super_admin', 'manager', 'platform_admin'],
-          badge: 'Store',
-          badgeColor: 'bg-purple-500/15 text-purple-300 border-purple-500/30',
-          icon: (
-            <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-            </svg>
-          ),
-        },
-        {
-          name: 'API Développeur',
-          href: '/admin/settings/api',
-          roles: ['owner', 'super_admin', 'platform_admin'],
-          badge: 'REST',
-          badgeColor: 'bg-blue-500/15 text-blue-300 border-blue-500/30',
-          icon: (
-            <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
-            </svg>
-          ),
-        },
-        {
-          name: 'Webhooks & Événements',
-          href: '/admin/settings/webhooks',
-          roles: ['owner', 'super_admin', 'platform_admin'],
-          badge: 'HMAC',
-          badgeColor: 'bg-purple-500/15 text-purple-300 border-purple-500/30',
-          icon: (
-            <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
-            </svg>
-          ),
-        },
-        {
-          name: 'Journal d’Audit',
+          name: t.sidebar.auditLogs,
           href: '/admin/audit',
           roles: ['owner', 'super_admin', 'platform_admin'],
           icon: (
@@ -319,10 +297,14 @@ export default function AdminSidebar({
   ];
 
   return (
-    <aside className="w-72 bg-[#090d16] border-r border-white/[0.08] flex flex-col justify-between shrink-0 shadow-2xl z-40 backdrop-blur-2xl">
+    <aside
+      className={`w-72 bg-[#090d16] flex flex-col justify-between shrink-0 shadow-2xl z-40 backdrop-blur-2xl ${
+        dir === 'rtl' ? 'border-l border-border-subtle' : 'border-r border-border-subtle'
+      }`}
+    >
       <div className="flex-1 overflow-y-auto">
         {/* Brand & Organization Header */}
-        <div className="p-4 sm:p-5 border-b border-white/[0.08] bg-surface-raised/30">
+        <div className="p-4 sm:p-5 border-b border-border-subtle bg-surface-raised/30">
           <div className="flex items-center gap-3">
             <div
               className="w-10 h-10 rounded-xl flex items-center justify-center font-black text-white shadow-lg shadow-blue-500/10 text-xs shrink-0 border border-white/[0.12]"
@@ -341,7 +323,7 @@ export default function AdminSidebar({
                 <Badge variant="info" size="sm">
                   {planSlug}
                 </Badge>
-                <span className="text-[10px] text-text-muted font-medium">Cockpit Atelier</span>
+                <span className="text-[10px] text-text-muted font-medium">Portail Atelier</span>
               </div>
             </div>
           </div>
@@ -369,11 +351,15 @@ export default function AdminSidebar({
                         className={`relative flex items-center justify-between px-3 py-2 text-xs font-semibold rounded-xl transition duration-150 group ${
                           isActive
                             ? 'bg-gradient-to-r from-blue-500/20 via-blue-500/10 to-transparent text-white shadow-sm border border-blue-500/30'
-                            : 'text-text-secondary hover:text-text-primary hover:bg-white/[0.04]'
+                            : 'text-text-secondary hover:text-text-primary hover:bg-surface-hover/60'
                         }`}
                       >
                         {isActive && (
-                          <span className="absolute left-0 top-2 bottom-2 w-[3px] bg-accent rounded-r-full shadow-[0_0_8px_#3b82f6]" />
+                          <span
+                            className={`absolute top-2 bottom-2 w-[3px] bg-accent shadow-[0_0_8px_#3b82f6] ${
+                              dir === 'rtl' ? 'right-0 rounded-l-full' : 'left-0 rounded-r-full'
+                            }`}
+                          />
                         )}
 
                         <div className="flex items-center gap-3 min-w-0">
@@ -391,9 +377,9 @@ export default function AdminSidebar({
 
                         {item.badge && (
                           <span
-                            className={`ml-2 px-1.5 py-0.5 rounded text-[9px] font-mono font-bold shrink-0 border ${
-                              item.badgeColor || 'bg-white/[0.04] text-text-secondary border-white/[0.08]'
-                            }`}
+                            className={`px-1.5 py-0.5 rounded text-[9px] font-mono font-bold shrink-0 border ${
+                              item.badgeColor || 'bg-surface-base text-text-secondary border-border-subtle'
+                            } ${dir === 'rtl' ? 'mr-2' : 'ml-2'}`}
                           >
                             {item.badge}
                           </span>
@@ -409,10 +395,10 @@ export default function AdminSidebar({
       </div>
 
       {/* User Session & Logout Footer */}
-      <div className="p-4 border-t border-white/[0.08] bg-surface-raised/40 space-y-3">
+      <div className="p-4 border-t border-border-subtle bg-surface-raised/40 space-y-3">
         <div className="flex items-center justify-between px-1">
           <div className="flex items-center gap-2.5 min-w-0">
-            <div className="w-8 h-8 rounded-lg bg-surface-overlay border border-white/[0.08] flex items-center justify-center font-bold text-xs text-text-primary shrink-0">
+            <div className="w-8 h-8 rounded-lg bg-surface-overlay border border-border-default flex items-center justify-center font-bold text-xs text-text-primary shrink-0">
               {username.charAt(0).toUpperCase()}
             </div>
             <div className="overflow-hidden min-w-0">

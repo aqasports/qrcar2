@@ -78,14 +78,20 @@ export const Input = React.forwardRef<HTMLInputElement, InputProps>(
 
 Input.displayName = 'Input';
 
+export interface SelectOption {
+  value: string;
+  label: string;
+}
+
 export interface SelectProps extends React.SelectHTMLAttributes<HTMLSelectElement> {
   label?: string;
   error?: string;
   helperText?: string;
+  options?: SelectOption[];
 }
 
 export const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
-  ({ label, error, helperText, className = '', id, required, disabled, children, ...props }, ref) => {
+  ({ label, error, helperText, className = '', id, required, disabled, options, children, ...props }, ref) => {
     const selectId = id || (label ? label.toLowerCase().replace(/\s+/g, '-') : undefined);
 
     return (
@@ -113,7 +119,13 @@ export const Select = React.forwardRef<HTMLSelectElement, SelectProps>(
             } ${disabled ? 'opacity-50 cursor-not-allowed' : ''} ${className}`}
             {...props}
           >
-            {children}
+            {options
+              ? options.map((opt) => (
+                  <option key={opt.value} value={opt.value} className="bg-surface-raised text-text-primary">
+                    {opt.label}
+                  </option>
+                ))
+              : children}
           </select>
           <div className="absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none text-text-muted">
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">

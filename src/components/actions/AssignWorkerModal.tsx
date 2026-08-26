@@ -1,5 +1,6 @@
 import React from 'react';
 import { Modal, Button, Input, Select } from '@/components/ui';
+import { useI18n } from '@/lib/i18n/I18nProvider';
 
 export interface WorkerOption {
   id: string;
@@ -37,27 +38,29 @@ export function AssignWorkerModal({
   hours,
   setHours,
 }: AssignWorkerModalProps) {
+  const { t } = useI18n();
+
   return (
     <Modal
       isOpen={isOpen}
       onClose={onClose}
-      title="Assigner un Intervenant"
-      description="Ajoutez un technicien responsable ou un assistant à l'équipe en charge des travaux."
+      title={t.workers.addWorker}
+      description={t.workers.subtitle}
     >
-      <form onSubmit={onAssignWorker} className="space-y-4">
+      <form onSubmit={onAssignWorker} className="space-y-4 font-sans">
         {error && (
-          <div className="p-3 rounded-xl bg-danger/10 border border-danger/25 text-danger text-xs">
+          <div className="p-3 rounded-xl bg-danger/10 border border-danger/25 text-danger text-xs font-semibold">
             {error}
           </div>
         )}
 
         <Select
-          label="Sélectionner l'Intervenant"
+          label={t.workers.fullName}
           required
           value={selectedWorkerId}
           onChange={(e) => setSelectedWorkerId(e.target.value)}
         >
-          <option value="">-- Choisir un collaborateur --</option>
+          <option value="">-- {t.workers.role} --</option>
           {workers.map((w) => (
             <option key={w.id} value={w.id}>
               {w.full_name} ({w.role})
@@ -67,7 +70,7 @@ export function AssignWorkerModal({
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <Select
-            label="Rôle sur l'Intervention"
+            label={t.workers.role}
             value={roleOnJob}
             onChange={(e) => setRoleOnJob(e.target.value as 'lead' | 'assist')}
           >
@@ -76,7 +79,7 @@ export function AssignWorkerModal({
           </Select>
 
           <Input
-            label="Temps Alloué (heures)"
+            label={`${t.actions.laborCost} (h)`}
             type="number"
             step="0.5"
             value={hours}
@@ -86,10 +89,10 @@ export function AssignWorkerModal({
 
         <div className="flex gap-2.5 pt-3">
           <Button type="submit" isLoading={isSaving} className="flex-1">
-            Confirmer l&apos;Assignation
+            {t.common.save}
           </Button>
           <Button type="button" variant="secondary" onClick={onClose} className="flex-1">
-            Annuler
+            {t.common.cancel}
           </Button>
         </div>
       </form>

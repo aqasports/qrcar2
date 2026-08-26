@@ -238,6 +238,10 @@ export const actions = pgTable('actions', {
   dateIn: timestamp('date_in', { withTimezone: true }).defaultNow().notNull(),
   dateOut: timestamp('date_out', { withTimezone: true }),
   laborCost: numeric('labor_cost', { precision: 10, scale: 2 }).notNull().default('0.00'),
+  hasTax: boolean('has_tax').notNull().default(true),
+  taxRate: numeric('tax_rate', { precision: 5, scale: 2 }).notNull().default('19.00'),
+  templateId: uuid('template_id'),
+  qualityCheckpoints: jsonb('quality_checkpoints'),
   createdBy: uuid('created_by').references(() => users.id, { onDelete: 'restrict' }).notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
@@ -245,6 +249,7 @@ export const actions = pgTable('actions', {
   index('idx_actions_org').on(t.organizationId),
   index('idx_actions_vehicle').on(t.vehicleId),
   index('idx_actions_status').on(t.organizationId, t.status),
+  index('idx_actions_template').on(t.templateId),
 ]);
 
 // ==========================================
@@ -416,6 +421,21 @@ export const cardDesigns = pgTable('card_designs', {
   status: varchar('status', { length: 50 }).default('draft').notNull(), // 'draft', 'submitted', 'approved', 'rejected'
   layoutPreset: varchar('layout_preset', { length: 50 }).default('modern_slate').notNull(),
   frontLogoUrl: text('front_logo_url'),
+  frontImageUrl: text('front_image_url'),
+  backImageUrl: text('back_image_url'),
+  frontImagePosition: varchar('front_image_position', { length: 50 }).default('header_logo'),
+  frontImageOpacity: numeric('front_image_opacity', { precision: 3, scale: 2 }).default('1.00'),
+  frontImageScale: integer('front_image_scale').default(100),
+  backImagePosition: varchar('back_image_position', { length: 50 }).default('background_watermark'),
+  backImageOpacity: numeric('back_image_opacity', { precision: 3, scale: 2 }).default('0.20'),
+  backImageScale: integer('back_image_scale').default(80),
+  frontRenderedPreviewUrl: text('front_rendered_preview_url'),
+  backRenderedPreviewUrl: text('back_rendered_preview_url'),
+  printSpecs: jsonb('print_specs'),
+  demandPackage: jsonb('demand_package'),
+  submissionNotes: text('submission_notes'),
+  contactEmail: varchar('contact_email', { length: 255 }),
+  requestedBatchQuantity: integer('requested_batch_quantity').default(100),
   frontHeadline: varchar('front_headline', { length: 255 }),
   frontSubheadline: varchar('front_subheadline', { length: 255 }),
   frontBgColor: varchar('front_bg_color', { length: 50 }).default('#0f172a'),
@@ -901,4 +921,124 @@ export const webhookSubscriptionsRelations = relations(webhookSubscriptions, ({ 
   }),
   deliveries: many(webhookDeliveries),
 }));
+
+// ==========================================
+// 41. REPAIR ORDER TEMPLATES (Custom Workshop Templates)
+// ==========================================
+export const repairOrderTemplates = pgTable('repair_order_templates', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  organizationId: uuid('organization_id').references(() => organizations.id, { onDelete: 'cascade' }).notNull(),
+  name: varchar('name', { length: 255 }).notNull(),
+  category: varchar('category', { length: 100 }).notNull().default('maintenance'), // 'maintenance', 'repair', 'inspection', 'custom'
+  description: text('description'),
+  defaultLaborCost: numeric('default_labor_cost', { precision: 10, scale: 2 }).notNull().default('0.00'),
+  defaultLaborHours: numeric('default_labor_hours', { precision: 5, scale: 2 }).notNull().default('1.00'),
+  isActive: boolean('is_active').notNull().default(true),
+  sortOrder: integer('sort_order').notNull().default(0),
+  checkpoints: jsonb('checkpoints').default([]),
+  suggestedParts: jsonb('suggested_parts').default([]),
+  createdBy: uuid('created_by').references(() => users.id, { onDelete: 'set null' }),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+}, (t) => [
+  index('idx_ro_templates_org').on(t.organizationId),
+  index('idx_ro_templates_category').on(t.organizationId, t.category),
+]);
+
+// ==========================================
+// 42. TEMPLATE LINE ITEMS (Custom acts/services inside template)
+// ==========================================
+export const templateLineItems = pgTable('template_line_items', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  templateId: uuid('template_id').references(() => repairOrderTemplates.id, { onDelete: 'cascade' }).notNull(),
+  name: varchar('name', { length: 255 }).notNull(),
+  description: text('description'),
+  itemType: varchar('item_type', { length: 50 }).notNull().default('service'), // 'service', 'part', 'labor', 'inspection'
+  defaultUnitPrice: numeric('default_unit_price', { precision: 10, scale: 2 }).notNull().default('0.00'),
+  defaultQuantity: numeric('default_quantity', { precision: 10, scale: 2 }).notNull().default('1.00'),
+  unit: varchar('unit', { length: 50 }).notNull().default('u'), // 'u', 'h', 'L', 'set', 'forfait'
+  linkedPartId: uuid('linked_part_id').references(() => parts.id, { onDelete: 'set null' }),
+  isRequired: boolean('is_required').notNull().default(false),
+  sortOrder: integer('sort_order').notNull().default(0),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+}, (t) => [
+  index('idx_template_line_items_tmpl').on(t.templateId),
+]);
+
+// ==========================================
+// 43. REPAIR ORDER ITEMS (Actual line items on an Action)
+// ==========================================
+export const repairOrderItems = pgTable('repair_order_items', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  actionId: uuid('action_id').references(() => actions.id, { onDelete: 'cascade' }).notNull(),
+  name: varchar('name', { length: 255 }).notNull(),
+  description: text('description'),
+  itemType: varchar('item_type', { length: 50 }).notNull().default('service'), // 'service', 'part', 'labor', 'inspection'
+  quantity: numeric('quantity', { precision: 10, scale: 2 }).notNull().default('1.00'),
+  unitPrice: numeric('unit_price', { precision: 10, scale: 2 }).notNull().default('0.00'),
+  unit: varchar('unit', { length: 50 }).notNull().default('u'),
+  linkedPartId: uuid('linked_part_id').references(() => parts.id, { onDelete: 'set null' }),
+  unitPriceSnapshot: numeric('unit_price_snapshot', { precision: 10, scale: 2 }),
+  sortOrder: integer('sort_order').notNull().default(0),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+}, (t) => [
+  index('idx_ro_items_action').on(t.actionId),
+]);
+
+// ==========================================
+// 44. TORQUE SPECS (Couples de Serrage Reference Table)
+// ==========================================
+export const torqueSpecs = pgTable('torque_specs', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  category: varchar('category', { length: 100 }).notNull(), // 'wheel_fastener', 'cylinder_head', 'spark_plug', 'standard_bolt', 'oil_drain', 'brake_caliper', 'suspension'
+  make: varchar('make', { length: 100 }),
+  model: varchar('model', { length: 100 }),
+  engineCode: varchar('engine_code', { length: 50 }),
+  yearFrom: integer('year_from'),
+  yearTo: integer('year_to'),
+  component: varchar('component', { length: 255 }).notNull(),
+  torqueNm: numeric('torque_nm', { precision: 8, scale: 2 }).notNull(),
+  torqueSequence: text('torque_sequence'),
+  threadSpec: varchar('thread_spec', { length: 50 }),
+  boltGrade: varchar('bolt_grade', { length: 20 }),
+  notes: text('notes'),
+  source: varchar('source', { length: 100 }).default('oem_database'),
+}, (t) => [
+  index('idx_torque_specs_cat').on(t.category),
+  index('idx_torque_specs_make_model').on(t.make, t.model),
+  index('idx_torque_specs_engine').on(t.engineCode),
+]);
+
+// Relations
+export const repairOrderTemplatesRelations = relations(repairOrderTemplates, ({ one, many }) => ({
+  organization: one(organizations, {
+    fields: [repairOrderTemplates.organizationId],
+    references: [organizations.id],
+  }),
+  lineItems: many(templateLineItems),
+  actions: many(actions),
+}));
+
+export const templateLineItemsRelations = relations(templateLineItems, ({ one }) => ({
+  template: one(repairOrderTemplates, {
+    fields: [templateLineItems.templateId],
+    references: [repairOrderTemplates.id],
+  }),
+  linkedPart: one(parts, {
+    fields: [templateLineItems.linkedPartId],
+    references: [parts.id],
+  }),
+}));
+
+export const repairOrderItemsRelations = relations(repairOrderItems, ({ one }) => ({
+  action: one(actions, {
+    fields: [repairOrderItems.actionId],
+    references: [actions.id],
+  }),
+  linkedPart: one(parts, {
+    fields: [repairOrderItems.linkedPartId],
+    references: [parts.id],
+  }),
+}));
+
 

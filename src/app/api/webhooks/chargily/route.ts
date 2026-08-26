@@ -9,13 +9,17 @@ export async function POST(req: NextRequest) {
     const rawBody = await req.text();
     const signature = req.headers.get('signature') || req.headers.get('x-chargily-signature');
 
-    // Verify signature if secret key is present in environment
-    if (process.env.CHARGILY_SECRET_KEY) {
+    // Verify signature with fail-closed security in production
+    const secretKey = process.env.CHARGILY_SECRET_KEY;
+    if (secretKey) {
       const isValid = verifyChargilyWebhookSignature(rawBody, signature);
       if (!isValid) {
         console.warn('Chargily webhook signature mismatch. Rejecting webhook request.');
         return NextResponse.json({ error: 'Invalid webhook signature' }, { status: 400 });
       }
+    } else if (process.env.NODE_ENV === 'production') {
+      console.error('CRITICAL: CHARGILY_SECRET_KEY missing in production environment. Rejecting unverified webhook.');
+      return NextResponse.json({ error: 'Webhook verification unavailable' }, { status: 500 });
     }
 
     const payload = JSON.parse(rawBody);

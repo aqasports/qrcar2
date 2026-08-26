@@ -11,12 +11,14 @@ import {
   CardDescription,
   CardContent,
   CardFooter,
-  Badge,
   Button,
   Input,
 } from '@/components/ui';
+import LocaleSwitcher from '@/components/LocaleSwitcher';
+import { useI18n } from '@/lib/i18n/I18nProvider';
 
 export default function LoginPage() {
+  const { t } = useI18n();
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -50,6 +52,11 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen bg-surface-base flex flex-col items-center justify-center p-4 relative overflow-hidden text-text-primary font-sans">
+      {/* Top right language switch */}
+      <div className="absolute top-6 right-6 z-20">
+        <LocaleSwitcher />
+      </div>
+
       {/* Precision ambient background glow */}
       <div className="absolute top-1/3 left-1/2 -translate-x-1/2 w-[600px] h-[350px] bg-blue-600/15 rounded-full blur-3xl pointer-events-none -z-10" />
 
@@ -60,8 +67,8 @@ export default function LoginPage() {
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v1m6 11h2m-6 0h-2v4m0-11v3m0 0h.01M12 12h4.01M16 20h4M4 12h4m12 0h.01M5 8h2a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1zm12 0h2a1 1 0 001-1V5a1 1 0 00-1-1h-2a1 1 0 00-1 1v2a1 1 0 001 1zM5 20h2a1 1 0 001-1v-2a1 1 0 00-1-1H5a1 1 0 00-1 1v2a1 1 0 001 1z" />
             </svg>
           </div>
-          <CardTitle className="text-xl">Garage Pro Back-Office</CardTitle>
-          <CardDescription>Portail de gestion atelier et traçabilité des véhicules</CardDescription>
+          <CardTitle className="text-xl">{t.login.title}</CardTitle>
+          <CardDescription>{t.login.subtitle}</CardDescription>
         </CardHeader>
 
         <CardContent className="space-y-4">
@@ -73,7 +80,7 @@ export default function LoginPage() {
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <Input
-              label="Identifiant Utilisateur"
+              label={t.login.username}
               required
               autoComplete="username"
               placeholder="ex. admin, manager ou tech"
@@ -82,7 +89,7 @@ export default function LoginPage() {
             />
 
             <Input
-              label="Mot de Passe"
+              label={t.login.password}
               type="password"
               required
               autoComplete="current-password"
@@ -97,17 +104,17 @@ export default function LoginPage() {
               className="w-full"
               size="lg"
             >
-              Se Connecter à l&apos;Atelier →
+              {t.login.signInButton}
             </Button>
           </form>
         </CardContent>
 
         <CardFooter className="flex items-center justify-between text-xs text-text-muted border-t border-border-subtle pt-4">
           <Link href="/" className="hover:text-text-primary transition">
-            ← Retour à l&apos;accueil
+            {t.login.backHome}
           </Link>
           <Link href="/annuaire" className="hover:text-text-primary transition">
-            Annuaire public ↗
+            {t.login.proDirectory}
           </Link>
         </CardFooter>
       </Card>

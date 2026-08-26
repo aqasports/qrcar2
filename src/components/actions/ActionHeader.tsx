@@ -1,6 +1,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { Button, Badge } from '@/components/ui';
+import { useI18n } from '@/lib/i18n/I18nProvider';
 
 export interface InvoiceMeta {
   id?: string;
@@ -36,34 +37,36 @@ export function ActionHeader({
   generatingInvoice,
   role,
 }: ActionHeaderProps) {
+  const { t } = useI18n();
+
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'completed':
-        return <Badge variant="success">Terminée</Badge>;
+        return <Badge variant="success">{t.actions.statusCompleted}</Badge>;
       case 'invoiced':
-        return <Badge variant="info">Facturée</Badge>;
+        return <Badge variant="info">{t.invoices.statusIssued}</Badge>;
       case 'in_progress':
-        return <Badge variant="info" pulse>En Atelier</Badge>;
+        return <Badge variant="info" pulse>{t.actions.statusInProgress}</Badge>;
       case 'open':
-        return <Badge variant="warning">Ouverte</Badge>;
+        return <Badge variant="warning">{t.actions.statusPending}</Badge>;
       default:
         return <Badge variant="neutral">{status}</Badge>;
     }
   };
 
   return (
-    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-6 border-b border-border-subtle">
+    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-6 border-b border-border-subtle font-sans">
       <div className="space-y-1.5">
         <div className="flex items-center gap-2 text-xs text-text-muted">
           <Link href="/admin/actions" className="hover:text-text-primary transition-colors">
-            Ordres de Réparation
+            {t.actions.title}
           </Link>
           <span className="text-text-disabled">/</span>
           <Link href={`/admin/vehicles/${action.vehicle_id || ''}`} className="hover:text-text-primary transition-colors font-mono">
-            {action.plate_number || 'Véhicule'}
+            {action.plate_number || t.vehicles.title.split('&')[0]}
           </Link>
           <span className="text-text-disabled">/</span>
-          <span className="text-text-primary font-medium">Intervention #{action.id.slice(-6)}</span>
+          <span className="text-text-primary font-medium">#{action.id.slice(-6)}</span>
         </div>
         <div className="flex items-center gap-3 flex-wrap">
           <h1 className="text-2xl sm:text-3xl font-black text-text-primary tracking-tight capitalize">
@@ -85,7 +88,7 @@ export function ActionHeader({
                 </svg>
               }
             >
-              Facture {invoice.invoice_number}{invoice.total !== undefined ? ` (${Number(invoice.total).toLocaleString()} DZD)` : ''}
+              {t.invoices.invoiceNumber} {invoice.invoice_number}{invoice.total !== undefined ? ` (${Number(invoice.total).toLocaleString()} ${t.common.currency})` : ''}
             </Button>
           </Link>
         ) : (
@@ -101,7 +104,7 @@ export function ActionHeader({
                 </svg>
               }
             >
-              Générer la Facture
+              {t.invoices.newInvoice}
             </Button>
           )
         )}
@@ -117,7 +120,7 @@ export function ActionHeader({
               </svg>
             }
           >
-            Supprimer
+            {t.common.delete}
           </Button>
         )}
       </div>

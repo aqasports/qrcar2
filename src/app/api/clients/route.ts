@@ -1,14 +1,23 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { sql } from '@/lib/db';
 import { logAudit } from '@/lib/audit';
+import { createClientSchema, validateRequestBody } from '@/lib/validation/schemas';
+import {
+  apiSuccess,
+  apiError,
+  apiUnauthorized,
+  apiForbidden,
+  apiConflict,
+  apiServerError,
+} from '@/lib/api/response';
 
 // GET /api/clients - List and search clients scoped to organization
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    return apiUnauthorized();
   }
 
   const { role, id: userId, organizationId } = session.user;
@@ -24,7 +33,7 @@ export async function GET(req: NextRequest) {
         [userId, organizationId]
       );
       if (workerRows.length === 0) {
-        return NextResponse.json([]);
+        return apiSuccess([]);
       }
       const workerId = workerRows[0].id;
 
@@ -50,10 +59,10 @@ export async function GET(req: NextRequest) {
       clients = await sql(query, [organizationId, `%${search}%`]);
     }
 
-    return NextResponse.json(clients);
+    return apiSuccess(clients);
   } catch (error) {
     console.error('Failed to get clients:', error);
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    return apiServerError();
   }
 }
 
@@ -61,32 +70,29 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    return apiUnauthorized();
   }
 
   const { role, id: userId, organizationId } = session.user;
   if (role === 'technician') {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    return apiForbidden('Les techniciens n’ont pas l’autorisation de créer des fiches clients.');
   }
 
+  const validation = await validateRequestBody(createClientSchema, req);
+  if (!validation.success) {
+    return apiError(validation.error, 'VALIDATION_ERROR', 400, validation.issues);
+  }
+
+  const { full_name, phone, email, address, notes } = validation.data;
+
   try {
-    const body = await req.json();
-    const { full_name, phone, email, address, notes } = body;
-
-    if (!full_name || !phone) {
-      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
-    }
-
     // Check duplicate phone within this organization
     const existing = await sql(
       `SELECT id FROM clients WHERE phone = $1 AND organization_id = $2 LIMIT 1`,
       [phone, organizationId]
     );
     if (existing.length > 0) {
-      return NextResponse.json(
-        { error: 'A client with this phone number already exists in your garage' },
-        { status: 400 }
-      );
+      return apiConflict('Un client avec ce numéro de téléphone existe déjà dans votre atelier.');
     }
 
     // Insert client with organization_id
@@ -109,9 +115,9 @@ export async function POST(req: NextRequest) {
       metadata: { full_name, phone },
     });
 
-    return NextResponse.json(client, { status: 201 });
+    return apiSuccess(client, 201);
   } catch (error) {
     console.error('Failed to create client:', error);
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    return apiServerError('Impossible d’enregistrer le client en base.');
   }
 }

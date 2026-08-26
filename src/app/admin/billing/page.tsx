@@ -13,13 +13,18 @@ import {
   Badge,
   Button,
   StatCard,
+  CurrencyDisplay,
   Spinner,
 } from '@/components/ui';
+import { useToast } from '@/lib/hooks/useToast';
+import { useI18n } from '@/lib/i18n/I18nProvider';
 
 export default function BillingPage() {
   const searchParams = useSearchParams();
   const successParam = searchParams.get('success');
   const canceledParam = searchParams.get('canceled');
+  const { toast } = useToast();
+  const { t } = useI18n();
 
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<any>(null);
@@ -33,7 +38,7 @@ export default function BillingPage() {
       const res = await fetch('/api/billing');
       if (!res.ok) throw new Error('Erreur lors du chargement des informations de facturation.');
       const json = await res.json();
-      setData(json);
+      setData(json?.data || json);
     } catch (err: any) {
       setError(err.message || 'Impossible de charger la facturation.');
     } finally {
@@ -45,6 +50,15 @@ export default function BillingPage() {
     fetchBilling();
   }, []);
 
+  useEffect(() => {
+    if (successParam) {
+      toast.success('Abonnement validé ! Votre forfait a été activé immédiatement.');
+    }
+    if (canceledParam) {
+      toast.warning('Paiement annulé. Aucun débit n’a été effectué.');
+    }
+  }, [successParam, canceledParam, toast]);
+
   const handleCheckout = async (planSlug: string) => {
     try {
       setCheckoutLoading(planSlug);
@@ -55,15 +69,16 @@ export default function BillingPage() {
       });
 
       const json = await res.json();
+      const payload = json?.data || json;
       if (!res.ok) {
-        throw new Error(json.error || 'Impossible d’initialiser le paiement Chargily.');
+        throw new Error(payload.error || 'Impossible d’initialiser le paiement Chargily.');
       }
 
-      if (json.checkout_url) {
-        window.location.href = json.checkout_url;
+      if (payload.checkout_url) {
+        window.location.href = payload.checkout_url;
       }
     } catch (err: any) {
-      alert(err.message || 'Erreur de paiement.');
+      toast.error(err.message || 'Erreur de paiement Chargily.');
       setCheckoutLoading(null);
     }
   };
@@ -72,8 +87,9 @@ export default function BillingPage() {
     setExporting(true);
     try {
       window.location.href = '/api/organization/export';
+      toast.success('Export des données atelier en cours de téléchargement...');
     } catch (err: any) {
-      alert('Erreur lors de l\'export des données.');
+      toast.error('Erreur lors de l’export des données.');
     } finally {
       setTimeout(() => setExporting(false), 2000);
     }
@@ -83,7 +99,7 @@ export default function BillingPage() {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-3">
         <Spinner size="lg" />
-        <p className="text-xs text-text-muted font-medium">Chargement des abonnements et quotas...</p>
+        <p className="text-xs text-text-muted font-medium">{t.common.loading}</p>
       </div>
     );
   }
@@ -93,13 +109,13 @@ export default function BillingPage() {
   const usage = details?.usage;
 
   return (
-    <div className="space-y-8 max-w-7xl mx-auto pb-16">
+    <div className="space-y-8 max-w-7xl mx-auto pb-16 font-sans">
       <PageHeader
-        title="Facturation & Abonnements SaaS"
-        subtitle="Gestion des forfaits atelier, quotas de véhicules, cartes PVC et paiements Chargily (BaridiMob / EDAHABIA / CIB)"
+        title={t.billing.title}
+        subtitle={t.billing.subtitle}
         breadcrumbs={[
-          { label: 'Tableau de bord', href: '/admin' },
-          { label: 'Facturation' },
+          { label: t.common.dashboard, href: '/admin' },
+          { label: t.sidebar.billing },
         ]}
         actions={
           <Button
@@ -113,20 +129,14 @@ export default function BillingPage() {
               </svg>
             }
           >
-            Exporter Sauvegarde Atelier (JSON)
+            {t.common.export} JSON
           </Button>
         }
       />
 
-      {/* Notifications */}
-      {successParam && (
-        <div className="p-4 rounded-xl bg-emerald-500/10 border border-emerald-500/25 text-emerald-400 text-xs font-semibold">
-          Paiement validé avec succès ! Votre abonnement a été activé immédiatement.
-        </div>
-      )}
-      {canceledParam && (
-        <div className="p-4 rounded-xl bg-warning/10 border border-warning/25 text-warning text-xs font-semibold">
-          La transaction Chargily a été annulée. Aucun montant n&apos;a été débité.
+      {error && (
+        <div className="p-4 rounded-xl bg-danger/10 border border-danger/25 text-danger text-xs font-semibold">
+          {error}
         </div>
       )}
 
@@ -139,10 +149,10 @@ export default function BillingPage() {
         }`}>
           <div>
             <p className="font-bold text-sm">
-              {details.isGracePeriod ? 'Période de grâce active' : 'Abonnement en souffrance'}
+              {details.isGracePeriod ? 'Période de grâce active' : 'Abonnement en attente de régularisation'}
             </p>
             <p className="text-xs text-text-secondary mt-0.5 max-w-xl">
-              {details.dunningNotice}
+              {details.dunningNotice || 'Veuillez renouveler votre abonnement pour continuer à profiter de toutes les fonctionnalités.'}
             </p>
           </div>
           <Button
@@ -150,7 +160,7 @@ export default function BillingPage() {
             size="sm"
             onClick={() => handleCheckout(currentPlan?.slug || 'starter')}
           >
-            Régulariser Maintenant
+            {t.billing.payWithBaridiMob}
           </Button>
         </div>
       )}
@@ -158,7 +168,7 @@ export default function BillingPage() {
       {/* Quota & Usage StatCards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
-          label="Forfait Actuel"
+          label={t.billing.currentPlan}
           value={currentPlan?.name || 'Starter'}
           subtitle={`Statut : ${details?.subscription?.status || 'Actif'}`}
           badge={<Badge variant="success">Actif</Badge>}
@@ -170,7 +180,7 @@ export default function BillingPage() {
         />
 
         <StatCard
-          label="Véhicules Enregistrés"
+          label={t.vehicles.title.split('&')[0]}
           value={`${usage?.vehiclesCount || 0} / ${currentPlan?.max_vehicles ?? '∞'}`}
           subtitle="Capacité de la flotte atelier"
           icon={
@@ -181,9 +191,9 @@ export default function BillingPage() {
         />
 
         <StatCard
-          label="Cartes PVC Actives"
+          label={t.cards.title.split('&')[0]}
           value={`${usage?.cardsCount || 0} / ${currentPlan?.max_cards ?? '∞'}`}
-          subtitle="Passeports physiques liés"
+          subtitle="Passeports physiques associés"
           icon={
             <svg className="w-5 h-5 text-purple-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
@@ -192,9 +202,9 @@ export default function BillingPage() {
         />
 
         <StatCard
-          label="Collaborateurs Atelier"
+          label={t.workers.title.split('&')[0]}
           value={`${usage?.usersCount || 0} / ${currentPlan?.max_users ?? '∞'}`}
-          subtitle="Comptes d'accès & techniciens"
+          subtitle="Comptes d'accès atelier"
           icon={
             <svg className="w-5 h-5 text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
@@ -205,7 +215,7 @@ export default function BillingPage() {
 
       {/* Plan Selection Cards */}
       <div className="space-y-4">
-        <h2 className="text-lg font-bold text-text-primary">Choisir ou Mettre à Niveau Votre Forfait</h2>
+        <h2 className="text-lg font-bold text-text-primary">Choisir ou Renouveler Votre Forfait</h2>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           {data?.plans?.map((p: any) => {
@@ -226,15 +236,17 @@ export default function BillingPage() {
                       {p.slug === 'pro' && <Badge variant="info">Recommandé</Badge>}
                       {isCurrent && <Badge variant="success">Forfait Actif</Badge>}
                     </div>
-                    <CardDescription>{p.description}</CardDescription>
+                    <CardDescription>{p.description || 'Solution complète de gestion atelier et cartes connectées'}</CardDescription>
                   </CardHeader>
 
                   <CardContent className="space-y-4">
                     <div className="flex items-baseline gap-1">
-                      <span className="text-3xl font-black font-mono text-text-primary">
-                        {p.price_dzd?.toLocaleString()}
-                      </span>
-                      <span className="text-xs text-text-muted">DZD / mois</span>
+                      <CurrencyDisplay
+                        amount={p.price_dzd || p.price_monthly || 0}
+                        size="xl"
+                        className="text-text-primary font-black"
+                      />
+                      <span className="text-xs text-text-muted">/ mois</span>
                     </div>
 
                     <ul className="space-y-2.5 text-xs text-text-secondary border-t border-border-subtle pt-4">
@@ -254,16 +266,14 @@ export default function BillingPage() {
                         <svg className="w-4 h-4 text-emerald-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                         </svg>
-                        <span>Jusqu&apos;à <strong className="text-text-primary">{p.max_users ?? 'Illimité'}</strong> comptes d&apos;accès</span>
+                        <span>Jusqu&apos;à <strong className="text-text-primary">{p.max_users ?? p.max_seats ?? 'Illimité'}</strong> comptes d&apos;accès</span>
                       </li>
-                      {p.features?.map((f: string, i: number) => (
-                        <li key={i} className="flex items-center gap-2">
-                          <svg className="w-4 h-4 text-emerald-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                          </svg>
-                          <span>{f}</span>
-                        </li>
-                      ))}
+                      <li className="flex items-center gap-2">
+                        <svg className="w-4 h-4 text-emerald-400 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                        <span>{t.billing.payWithBaridiMob}</span>
+                      </li>
                     </ul>
                   </CardContent>
                 </div>
@@ -276,7 +286,7 @@ export default function BillingPage() {
                     isLoading={checkoutLoading === p.slug}
                     onClick={() => handleCheckout(p.slug)}
                   >
-                    {isCurrent ? 'Forfait Actuel' : `Souscrire via Chargily`}
+                    {isCurrent ? t.billing.currentPlan : t.billing.payWithBaridiMob}
                   </Button>
                 </CardFooter>
               </Card>

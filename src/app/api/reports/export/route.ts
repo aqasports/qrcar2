@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { sql } from '@/lib/db';
+import { apiUnauthorized, apiForbidden } from '@/lib/api/response';
 
 // Helper to escape values for CSV
 function escapeCSV(val: any) {
@@ -14,16 +15,20 @@ function escapeCSV(val: any) {
   return str;
 }
 
-// GET /api/reports/export - Export database catalogs to CSV
+// GET /api/reports/export - Export database catalogs to CSV (tenant-scoped)
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session) {
-    return new NextResponse('Unauthorized', { status: 401 });
+    return apiUnauthorized();
   }
 
-  const { role } = session.user;
+  const { role, organizationId } = session.user;
   if (role === 'technician') {
-    return new NextResponse('Forbidden', { status: 403 });
+    return apiForbidden('Les techniciens ne peuvent pas exporter les données de l\'atelier.');
+  }
+
+  if (!organizationId) {
+    return apiForbidden('Organisation non identifiée.');
   }
 
   const { searchParams } = new URL(req.url);
@@ -34,7 +39,10 @@ export async function GET(req: NextRequest) {
     let filename = 'export.csv';
 
     if (type === 'clients') {
-      const rows = await sql(`SELECT * FROM clients ORDER BY full_name ASC`);
+      const rows = await sql(
+        `SELECT * FROM clients WHERE organization_id = $1 ORDER BY full_name ASC`,
+        [organizationId]
+      );
       filename = 'clients-ledger.csv';
       
       const headers = ['ID', 'Full Name', 'Phone', 'Email', 'Address', 'Notes', 'Created At'];
@@ -58,8 +66,9 @@ export async function GET(req: NextRequest) {
         FROM actions a
         JOIN vehicles v ON a.vehicle_id = v.id
         JOIN clients c ON v.client_id = c.id
+        WHERE a.organization_id = $1
         ORDER BY a.date_in DESC
-      `);
+      `, [organizationId]);
       filename = 'service-actions-history.csv';
 
       const headers = ['Action ID', 'Client Name', 'Plate Number', 'Vehicle', 'Type', 'Description', 'Odometer Log', 'Status', 'Labor Cost', 'Date In', 'Date Out'];
@@ -82,7 +91,10 @@ export async function GET(req: NextRequest) {
         csvContent += line.join(',') + '\n';
       }
     } else if (type === 'inventory') {
-      const rows = await sql(`SELECT * FROM parts ORDER BY name ASC`);
+      const rows = await sql(
+        `SELECT * FROM parts WHERE organization_id = $1 ORDER BY name ASC`,
+        [organizationId]
+      );
       filename = 'inventory-catalog.csv';
 
       const headers = ['Part ID', 'Name', 'Category', 'SKU', 'Unit', 'Purchase Price', 'Sale Price', 'Qty in Stock', 'Min Threshold', 'Active'];

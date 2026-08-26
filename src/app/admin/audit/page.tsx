@@ -37,9 +37,10 @@ export default function AuditLogsPage() {
       setLoading(true);
       try {
         const res = await fetch('/api/audit');
-        const data = await res.json();
-        if (Array.isArray(data)) {
-          setLogs(data);
+        const json = await res.json();
+        const rawList = json?.data !== undefined ? json.data : json;
+        if (Array.isArray(rawList)) {
+          setLogs(rawList);
         }
       } catch (err) {
         console.error(err);

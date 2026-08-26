@@ -4,7 +4,8 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import LocaleSwitcher from '@/components/LocaleSwitcher';
 import CommandPalette from '@/components/CommandPalette';
-import { Button, Badge } from '@/components/ui';
+import { Button } from '@/components/ui';
+import { useI18n } from '@/lib/i18n/I18nProvider';
 
 export default function AdminCockpitHeader({
   orgName,
@@ -15,6 +16,7 @@ export default function AdminCockpitHeader({
   role: string;
   planSlug: string;
 }) {
+  const { t } = useI18n();
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [unreadMessages, setUnreadMessages] = useState(0);
 
@@ -50,7 +52,7 @@ export default function AdminCockpitHeader({
             <svg className="w-4 h-4 text-text-muted group-hover:text-accent transition" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
             </svg>
-            <span className="flex-1 text-left truncate text-text-secondary">Recherche globale, VIN, DTC...</span>
+            <span className="flex-1 text-left truncate text-text-secondary">{t.cockpit.searchPlaceholder}</span>
             <kbd className="hidden sm:inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-surface-overlay border border-white/[0.1] text-[10px] font-mono text-text-muted">
               <span>⌘</span>K
             </kbd>
@@ -59,7 +61,7 @@ export default function AdminCockpitHeader({
           {/* Telemetry Status Indicator */}
           <div className="hidden lg:flex items-center gap-2 px-3 py-1 rounded-full bg-surface-raised/80 border border-white/[0.08] text-[11px] font-mono text-text-muted">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.8)] animate-pulse" />
-            <span>SYSTÈME CONNECTÉ</span>
+            <span>{t.cockpit.systemOnline}</span>
           </div>
         </div>
 
@@ -75,7 +77,7 @@ export default function AdminCockpitHeader({
                 </svg>
               }
             >
-              Nouvel OR
+              {t.cockpit.newAction}
             </Button>
           </Link>
 
@@ -83,7 +85,7 @@ export default function AdminCockpitHeader({
           <Link
             href="/admin/messages"
             className="relative p-2 rounded-xl bg-white/[0.03] border border-white/[0.08] hover:border-white/[0.18] text-text-secondary hover:text-text-primary transition"
-            title="Messagerie Directe Inter-Garages"
+            title={t.cockpit.messagesTooltip}
           >
             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />

@@ -1,7 +1,7 @@
 import React from 'react';
 
 export interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
-  variant?: 'default' | 'interactive' | 'glass';
+  variant?: 'default' | 'interactive' | 'glass' | 'bezel' | 'inset';
 }
 
 export function Card({
@@ -10,12 +10,23 @@ export function Card({
   variant = 'default',
   ...props
 }: CardProps) {
+  if (variant === 'bezel') {
+    return (
+      <div className={`bezel-outer ${className}`} {...props}>
+        <div className="bezel-inner overflow-hidden">
+          {children}
+        </div>
+      </div>
+    );
+  }
+
   const baseStyles = 'rounded-2xl transition-all duration-200 overflow-hidden relative';
 
   const variantStyles = {
     default: 'linear-card',
     interactive: 'linear-card-interactive cursor-pointer group',
     glass: 'bg-surface-raised/60 backdrop-blur-xl border border-white/[0.08] shadow-2xl shadow-black/40',
+    inset: 'bg-surface-sunken border border-border-subtle shadow-inner',
   }[variant];
 
   return (

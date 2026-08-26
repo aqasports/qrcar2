@@ -20,6 +20,7 @@ import {
   Textarea,
   Modal,
 } from '@/components/ui';
+import { useI18n } from '@/lib/i18n/I18nProvider';
 
 interface Appointment {
   id: string;
@@ -45,6 +46,7 @@ interface Appointment {
 
 export default function AdminAppointmentsPage() {
   const router = useRouter();
+  const { t, locale } = useI18n();
 
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
@@ -64,9 +66,10 @@ export default function AdminAppointmentsPage() {
     setLoading(true);
     try {
       const res = await fetch('/api/appointments');
-      const data = await res.json();
-      if (Array.isArray(data)) {
-        setAppointments(data);
+      const json = await res.json();
+      const rawList = json?.data !== undefined ? json.data : json;
+      if (Array.isArray(rawList)) {
+        setAppointments(rawList);
       }
     } catch (err) {
       console.error(err);
@@ -146,26 +149,26 @@ export default function AdminAppointmentsPage() {
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'confirmed':
-        return <Badge variant="success">Confirmé</Badge>;
+        return <Badge variant="success">{t.appointments.statusConfirmed}</Badge>;
       case 'pending':
-        return <Badge variant="warning" pulse>En Attente</Badge>;
+        return <Badge variant="warning" pulse>{t.appointments.statusPending}</Badge>;
       case 'completed':
-        return <Badge variant="info">Converti / Terminé</Badge>;
+        return <Badge variant="info">{t.appointments.statusCompleted}</Badge>;
       case 'cancelled':
-        return <Badge variant="danger">Annulé</Badge>;
+        return <Badge variant="danger">{t.appointments.statusCancelled}</Badge>;
       default:
         return <Badge variant="neutral">{status}</Badge>;
     }
   };
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto pb-16">
+    <div className="space-y-6 max-w-7xl mx-auto pb-16 font-sans">
       <PageHeader
-        title="Planning des Rendez-vous"
-        subtitle="Demandes de réservations clients transmises depuis le passeport QR numérique"
+        title={t.appointments.title}
+        subtitle={t.appointments.subtitle}
         breadcrumbs={[
-          { label: 'Tableau de bord', href: '/admin' },
-          { label: 'Rendez-vous' },
+          { label: t.common.dashboard, href: '/admin' },
+          { label: t.appointments.title.split('&')[0] },
         ]}
       />
 
@@ -184,7 +187,7 @@ export default function AdminAppointmentsPage() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="flex items-center gap-3 flex-1 max-w-md">
           <Input
-            placeholder="Rechercher par immatriculation, client..."
+            placeholder={t.appointments.searchPlaceholder}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
           />
@@ -195,11 +198,11 @@ export default function AdminAppointmentsPage() {
             value={filterStatus}
             onChange={(e) => setFilterStatus(e.target.value)}
           >
-            <option value="all">Tous les états ({appointments.length})</option>
-            <option value="pending">En attente de confirmation</option>
-            <option value="confirmed">Confirmés</option>
-            <option value="completed">Terminés / Convertis</option>
-            <option value="cancelled">Annulés</option>
+            <option value="all">{t.common.all} ({appointments.length})</option>
+            <option value="pending">{t.appointments.statusPending}</option>
+            <option value="confirmed">{t.appointments.statusConfirmed}</option>
+            <option value="completed">{t.appointments.statusCompleted}</option>
+            <option value="cancelled">{t.appointments.statusCancelled}</option>
           </Select>
         </div>
       </div>
@@ -208,29 +211,29 @@ export default function AdminAppointmentsPage() {
       <Table>
         <TableHeader>
           <tr>
-            <TableHead>Date & Créneau</TableHead>
-            <TableHead>Véhicule & Immatriculation</TableHead>
-            <TableHead>Client</TableHead>
-            <TableHead>Prestation Demandée</TableHead>
-            <TableHead>Statut</TableHead>
-            <TableHead className="text-right">Actions</TableHead>
+            <TableHead>{t.appointments.preferredDate}</TableHead>
+            <TableHead>{t.appointments.vehicle}</TableHead>
+            <TableHead>{t.appointments.client}</TableHead>
+            <TableHead>{t.appointments.serviceType}</TableHead>
+            <TableHead>{t.common.status}</TableHead>
+            <TableHead className="text-right">{t.common.actions_label}</TableHead>
           </tr>
         </TableHeader>
         <TableBody>
           {loading ? (
-            <TableLoadingState colSpan={6} message="Chargement des rendez-vous..." />
+            <TableLoadingState colSpan={6} message={t.common.loading} />
           ) : filteredAppointments.length === 0 ? (
             <TableEmptyState
               colSpan={6}
-              title="Aucun rendez-vous"
-              description="Les demandes effectuées par les clients depuis leur passeport apparaîtront ici."
+              title={t.common.empty}
+              description={t.common.noData}
             />
           ) : (
             filteredAppointments.map((apt) => (
               <TableRow key={apt.id}>
                 <TableCell>
                   <span className="font-bold text-text-primary block whitespace-nowrap">
-                    {new Date(apt.preferred_date).toLocaleDateString('fr-FR')}
+                    {new Date(apt.preferred_date).toLocaleDateString(locale === 'ar' ? 'ar-DZ' : locale === 'en' ? 'en-US' : 'fr-DZ')}
                   </span>
                   <span className="text-text-muted text-xs block capitalize font-mono">
                     {apt.preferred_time_slot || 'Matinée'}
@@ -283,7 +286,7 @@ export default function AdminAppointmentsPage() {
                           setResponseModalOpen(true);
                         }}
                       >
-                        Répondre
+                        {t.appointments.confirmBooking}
                       </Button>
                     )}
 
@@ -294,7 +297,7 @@ export default function AdminAppointmentsPage() {
                         isLoading={processingId === apt.id}
                         onClick={() => handleConvertToServiceAction(apt.id)}
                       >
-                        Ouvrir OR
+                        {t.actions.newAction}
                       </Button>
                     )}
                   </div>
@@ -309,21 +312,21 @@ export default function AdminAppointmentsPage() {
       <Modal
         isOpen={responseModalOpen}
         onClose={() => setResponseModalOpen(false)}
-        title="Traitement de la Demande de Rendez-vous"
+        title={t.appointments.confirmBooking}
         description={`Véhicule ${selectedAppointment?.plate_number} pour ${selectedAppointment?.client_name}`}
       >
         <div className="space-y-4">
           <Select
-            label="Décision de l'Atelier"
+            label={t.appointments.garageNotes}
             value={responseStatus}
             onChange={(e) => setResponseStatus(e.target.value as 'confirmed' | 'cancelled')}
           >
-            <option value="confirmed">Confirmer le créneau de rendez-vous</option>
-            <option value="cancelled">Refuser / Proposer un autre horaire</option>
+            <option value="confirmed">{t.appointments.confirmBooking}</option>
+            <option value="cancelled">{t.appointments.cancelBooking}</option>
           </Select>
 
           <Textarea
-            label="Message d'Accusé pour le Client (Optionnel)"
+            label={t.portal.garageResponse}
             rows={3}
             placeholder="ex. Rendez-vous confirmé. Veuillez déposer le véhicule dès 08h30."
             value={responseText}
@@ -340,10 +343,10 @@ export default function AdminAppointmentsPage() {
                 }
               }}
             >
-              Enregistrer la Réponse
+              {t.common.save}
             </Button>
             <Button variant="secondary" onClick={() => setResponseModalOpen(false)} className="flex-1">
-              Fermer
+              {t.common.cancel}
             </Button>
           </div>
         </div>

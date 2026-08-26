@@ -1,14 +1,23 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { sql } from '@/lib/db';
 import { logAudit } from '@/lib/audit';
+import { createVehicleSchema, validateRequestBody } from '@/lib/validation/schemas';
+import {
+  apiSuccess,
+  apiError,
+  apiUnauthorized,
+  apiForbidden,
+  apiConflict,
+  apiServerError,
+} from '@/lib/api/response';
 
 // GET /api/vehicles - List/search vehicles scoped to organization
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    return apiUnauthorized();
   }
 
   const { role, id: userId, organizationId } = session.user;
@@ -24,7 +33,7 @@ export async function GET(req: NextRequest) {
         [userId, organizationId]
       );
       if (workerRows.length === 0) {
-        return NextResponse.json([]);
+        return apiSuccess([]);
       }
       const workerId = workerRows[0].id;
 
@@ -52,10 +61,10 @@ export async function GET(req: NextRequest) {
       vehicles = await sql(query, [organizationId, `%${search}%`]);
     }
 
-    return NextResponse.json(vehicles);
+    return apiSuccess(vehicles);
   } catch (error) {
     console.error('Failed to get vehicles:', error);
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    return apiServerError();
   }
 }
 
@@ -63,39 +72,36 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    return apiUnauthorized();
   }
 
   const { role, id: userId, organizationId } = session.user;
   if (role === 'technician') {
-    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    return apiForbidden('Les techniciens n’ont pas l’autorisation d’enregistrer des véhicules.');
   }
 
+  const validation = await validateRequestBody(createVehicleSchema, req);
+  if (!validation.success) {
+    return apiError(validation.error, 'VALIDATION_ERROR', 400, validation.issues);
+  }
+
+  const {
+    client_id,
+    plate_number,
+    make,
+    model,
+    year,
+    vin,
+    color,
+    current_mileage,
+    fuel_type,
+    transmission,
+    engine_spec,
+    oil_type,
+    tire_size,
+  } = validation.data;
+
   try {
-    const body = await req.json();
-    const {
-      client_id,
-      plate_number,
-      make,
-      model,
-      year,
-      vin,
-      color,
-      current_mileage,
-      fuel_type,
-      transmission,
-      engine_spec,
-      oil_type,
-      tire_size,
-    } = body;
-
-    if (!plate_number || !make || !model || !year) {
-      return NextResponse.json(
-        { error: 'Veuillez remplir les champs obligatoires (Immatriculation, Marque, Modèle, Année).' },
-        { status: 400 }
-      );
-    }
-
     let verifiedClientId = client_id || null;
     if (verifiedClientId) {
       const clientCheck = await sql(
@@ -103,7 +109,7 @@ export async function POST(req: NextRequest) {
         [verifiedClientId, organizationId]
       );
       if (clientCheck.length === 0) {
-        return NextResponse.json({ error: 'Client titulaire introuvable.' }, { status: 400 });
+        return apiError('Client titulaire introuvable.', 'CLIENT_NOT_FOUND', 404);
       }
     }
 
@@ -113,10 +119,7 @@ export async function POST(req: NextRequest) {
       [plate_number.trim().toUpperCase(), organizationId]
     );
     if (plateCheck.length > 0) {
-      return NextResponse.json(
-        { error: 'Un véhicule avec ce numéro d\'immatriculation existe déjà dans votre garage.' },
-        { status: 400 }
-      );
+      return apiConflict('Un véhicule avec ce numéro d’immatriculation existe déjà dans votre atelier.');
     }
 
     // Insert vehicle with organization_id
@@ -133,10 +136,10 @@ export async function POST(req: NextRequest) {
         plate_number.trim().toUpperCase(),
         make.trim(),
         model.trim(),
-        parseInt(year, 10),
+        year,
         vin?.trim() || null,
         color?.trim() || null,
-        parseInt(current_mileage, 10) || 0,
+        current_mileage || 0,
         fuel_type || 'diesel',
         transmission || 'manuelle',
         engine_spec?.trim() || null,
@@ -162,9 +165,9 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    return NextResponse.json(vehicle, { status: 201 });
+    return apiSuccess(vehicle, 201);
   } catch (error) {
     console.error('Failed to create vehicle:', error);
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+    return apiServerError('Impossible d’enregistrer le véhicule en base.');
   }
 }

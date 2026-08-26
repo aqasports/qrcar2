@@ -112,8 +112,9 @@ export default function VehicleDetailPage() {
   const fetchClientsList = async () => {
     try {
       const res = await fetch('/api/clients');
-      const data = await res.json();
-      if (Array.isArray(data)) setClients(data);
+      const json = await res.json();
+      const rawList = json?.data !== undefined ? json.data : json;
+      if (Array.isArray(rawList)) setClients(rawList);
     } catch (err) {
       console.error(err);
     }
@@ -122,10 +123,11 @@ export default function VehicleDetailPage() {
   const fetchUnassignedCards = async () => {
     try {
       const res = await fetch('/api/cards?status=unassigned');
-      const data = await res.json();
-      if (Array.isArray(data)) {
-        setUnassignedCards(data);
-        if (data.length > 0) setSelectedCardToken(data[0].token);
+      const json = await res.json();
+      const rawList = json?.data !== undefined ? json.data : json;
+      if (Array.isArray(rawList)) {
+        setUnassignedCards(rawList);
+        if (rawList.length > 0) setSelectedCardToken(rawList[0].token);
       }
     } catch (err) {
       console.error(err);
@@ -135,8 +137,9 @@ export default function VehicleDetailPage() {
   const fetchWorkersList = async () => {
     try {
       const res = await fetch('/api/workers');
-      const data = await res.json();
-      if (Array.isArray(data)) setAllWorkers(data.filter((w: any) => w.active));
+      const json = await res.json();
+      const rawList = json?.data !== undefined ? json.data : json;
+      if (Array.isArray(rawList)) setAllWorkers(rawList.filter((w: any) => w.active));
     } catch (err) {
       console.error(err);
     }

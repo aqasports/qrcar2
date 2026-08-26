@@ -3,7 +3,7 @@ import { Card } from './Card';
 
 export interface StatCardProps {
   label: string;
-  value: string | number;
+  value: string | number | React.ReactNode;
   subtitle?: string;
   trend?: {
     value: string;
@@ -29,7 +29,7 @@ export function StatCard({
       <div className="absolute top-0 right-0 w-32 h-32 bg-blue-500/5 rounded-full blur-2xl pointer-events-none group-hover:bg-blue-500/10 transition-all duration-300" />
 
       <div className="flex items-start justify-between gap-4 relative z-10">
-        <div className="space-y-2">
+        <div className="space-y-2 min-w-0 flex-1">
           <p className="text-[11px] font-semibold uppercase tracking-wider text-text-muted">{label}</p>
           <div className="flex items-baseline gap-2.5 flex-wrap">
             <span className="text-2xl sm:text-3xl font-black font-mono text-text-primary tracking-tight">

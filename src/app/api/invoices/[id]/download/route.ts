@@ -31,9 +31,10 @@ export async function GET(
       // 2. If public, verify card token matches the vehicle of the invoice
       const verification = await sql(
         `
-        SELECT 1 FROM invoices i
-        JOIN actions a ON i.action_id = a.id
-        JOIN pvc_cards c ON c.vehicle_id = a.vehicle_id
+        SELECT i.id, i.invoice_number 
+        FROM invoices i
+        JOIN actions a ON i.action_id = a.id AND a.organization_id = i.organization_id
+        JOIN pvc_cards c ON c.vehicle_id = a.vehicle_id AND c.organization_id = i.organization_id
         WHERE i.id = $1 AND c.token = $2 AND c.status = 'active'
         LIMIT 1
       `,

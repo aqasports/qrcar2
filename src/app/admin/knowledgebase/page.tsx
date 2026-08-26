@@ -15,12 +15,14 @@ import {
   Spinner,
   EmptyState,
 } from '@/components/ui';
+import { useI18n } from '@/lib/i18n/I18nProvider';
 
 const POPULAR_DTC = [
   'P0300', 'P0420', 'P0299', 'P0101', 'P0401', 'P0171', 'DF053', 'DF025', 'U0100', 'P2002'
 ];
 
 export default function KnowledgebaseBrowsePage() {
+  const { t } = useI18n();
   const [solutions, setSolutions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [dtcFilter, setDtcFilter] = useState('');
@@ -84,13 +86,13 @@ export default function KnowledgebaseBrowsePage() {
   };
 
   return (
-    <div className="space-y-8 max-w-7xl mx-auto pb-16">
+    <div className="space-y-8 max-w-7xl mx-auto pb-16 font-sans">
       <PageHeader
-        title="Base de Connaissances Mécaniques & Codes DTC"
-        subtitle="Dépannages éprouvés, causes racines et procédures d'atelier pour les codes défauts OBD-II et calculateurs"
+        title={t.knowledgebase.title}
+        subtitle={t.knowledgebase.subtitle}
         breadcrumbs={[
-          { label: 'Tableau de bord', href: '/admin' },
-          { label: 'Base de Connaissances' },
+          { label: t.common.dashboard, href: '/admin' },
+          { label: t.sidebar.knowledgebase },
         ]}
         actions={
           <Link href="/admin/knowledgebase/new">
@@ -103,7 +105,7 @@ export default function KnowledgebaseBrowsePage() {
                 </svg>
               }
             >
-              Partager une Fiche Technique
+              {t.knowledgebase.shareSolution}
             </Button>
           </Link>
         }
@@ -114,7 +116,7 @@ export default function KnowledgebaseBrowsePage() {
         <CardContent className="space-y-4 pt-6">
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-xs font-bold text-text-secondary uppercase tracking-wider mr-2">
-              Codes Fréquents :
+              {t.knowledgebase.popularCodes}
             </span>
             <button
               type="button"
@@ -125,7 +127,7 @@ export default function KnowledgebaseBrowsePage() {
                   : 'bg-surface-base border border-border-subtle text-text-muted hover:text-text-primary'
               }`}
             >
-              Tous
+              {t.common.all}
             </button>
             {POPULAR_DTC.map((dtc) => (
               <button
@@ -146,12 +148,12 @@ export default function KnowledgebaseBrowsePage() {
           {/* Keyword Search */}
           <form onSubmit={handleSearchSubmit} className="flex gap-2">
             <Input
-              placeholder="Rechercher par symptôme (ex. calage à chaud, fumée noire, perte de puissance...)"
+              placeholder={t.knowledgebase.searchPlaceholder}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
             <Button type="submit" variant="secondary">
-              Rechercher
+              {t.common.search}
             </Button>
           </form>
         </CardContent>
@@ -161,16 +163,16 @@ export default function KnowledgebaseBrowsePage() {
       {loading ? (
         <div className="flex flex-col items-center justify-center min-h-[40vh] gap-3">
           <Spinner size="lg" />
-          <p className="text-xs text-text-muted">Interrogation de la base de diagnostics...</p>
+          <p className="text-xs text-text-muted">{t.common.loading}</p>
         </div>
       ) : solutions.length === 0 ? (
         <EmptyState
-          title="Aucune fiche de dépannage trouvée"
-          description="Soyez le premier à documenter la procédure de réparation pour ce symptôme ou code DTC."
+          title={t.common.empty}
+          description={t.knowledgebase.noSolutions}
           action={
             <Link href="/admin/knowledgebase/new">
               <Button variant="primary" size="sm">
-                Rédiger une Solution
+                {t.knowledgebase.shareSolution}
               </Button>
             </Link>
           }
@@ -230,14 +232,14 @@ export default function KnowledgebaseBrowsePage() {
                     </svg>
                   }
                 >
-                  {item.upvotes_count || 0} Votes Utiles
+                  {item.upvotes_count || 0} {t.knowledgebase.helpfulVotes}
                 </Button>
 
                 <Link
                   href={`/admin/knowledgebase/${item.id}`}
                   className="text-xs font-bold text-accent hover:text-accent-hover"
                 >
-                  Lire la Fiche →
+                  {t.knowledgebase.readGuide}
                 </Link>
               </CardFooter>
             </Card>

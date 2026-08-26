@@ -11,6 +11,7 @@ import {
   Button,
   StatCard,
 } from '@/components/ui';
+import LocaleSwitcher from '@/components/LocaleSwitcher';
 
 export default function HomePage() {
   return (
@@ -44,6 +45,7 @@ export default function HomePage() {
           </div>
 
           <div className="flex items-center gap-3">
+            <LocaleSwitcher />
             <Link href="/annuaire">
               <Button variant="ghost" size="sm">
                 Annuaire Ateliers

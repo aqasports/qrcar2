@@ -141,6 +141,10 @@ function initSchema(db: Database) {
 
   try { db.run(`ALTER TABLE users ADD COLUMN is_platform_admin INTEGER DEFAULT 0;`); } catch {}
   try { db.run(`ALTER TABLE users ADD COLUMN role TEXT DEFAULT 'manager';`); } catch {}
+  try { db.run(`ALTER TABLE actions ADD COLUMN has_tax INTEGER DEFAULT 1;`); } catch {}
+  try { db.run(`ALTER TABLE actions ADD COLUMN tax_rate REAL DEFAULT 19.00;`); } catch {}
+  try { db.run(`ALTER TABLE actions ADD COLUMN template_id TEXT;`); } catch {}
+  try { db.run(`ALTER TABLE actions ADD COLUMN quality_checkpoints TEXT DEFAULT '[]';`); } catch {}
 
   db.run(`
 
@@ -243,11 +247,96 @@ function initSchema(db: Database) {
       mileage_at_service INTEGER NOT NULL,
       status TEXT NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'in_progress', 'completed', 'invoiced')),
       labor_cost REAL NOT NULL DEFAULT 0.00,
+      has_tax INTEGER DEFAULT 1,
+      tax_rate REAL DEFAULT 19.00,
+      template_id TEXT,
+      quality_checkpoints TEXT DEFAULT '[]',
       created_by TEXT,
       date_in TEXT DEFAULT CURRENT_TIMESTAMP,
       date_out TEXT,
       created_at TEXT DEFAULT CURRENT_TIMESTAMP,
       updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS repair_order_templates (
+      id TEXT PRIMARY KEY,
+      organization_id TEXT NOT NULL,
+      name TEXT NOT NULL,
+      category TEXT NOT NULL DEFAULT 'maintenance',
+      description TEXT,
+      default_labor_cost REAL NOT NULL DEFAULT 0.00,
+      default_labor_hours REAL NOT NULL DEFAULT 1.00,
+      is_active INTEGER NOT NULL DEFAULT 1,
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      checkpoints TEXT DEFAULT '[]',
+      suggested_parts TEXT DEFAULT '[]',
+      created_by TEXT,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS template_line_items (
+      id TEXT PRIMARY KEY,
+      template_id TEXT NOT NULL,
+      name TEXT NOT NULL,
+      description TEXT,
+      item_type TEXT NOT NULL DEFAULT 'service',
+      default_unit_price REAL NOT NULL DEFAULT 0.00,
+      default_quantity REAL NOT NULL DEFAULT 1.00,
+      unit TEXT NOT NULL DEFAULT 'u',
+      linked_part_id TEXT,
+      is_required INTEGER NOT NULL DEFAULT 0,
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS repair_order_items (
+      id TEXT PRIMARY KEY,
+      action_id TEXT NOT NULL,
+      name TEXT NOT NULL,
+      description TEXT,
+      item_type TEXT NOT NULL DEFAULT 'service',
+      quantity REAL NOT NULL DEFAULT 1.00,
+      unit_price REAL NOT NULL DEFAULT 0.00,
+      unit TEXT NOT NULL DEFAULT 'u',
+      linked_part_id TEXT,
+      unit_price_snapshot REAL,
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS torque_specs (
+      id TEXT PRIMARY KEY,
+      category TEXT NOT NULL,
+      make TEXT,
+      model TEXT,
+      engine_code TEXT,
+      year_from INTEGER,
+      year_to INTEGER,
+      component TEXT NOT NULL,
+      torque_nm REAL NOT NULL,
+      torque_sequence TEXT,
+      thread_spec TEXT,
+      bolt_grade TEXT,
+      notes TEXT,
+      source TEXT DEFAULT 'oem_database'
+    );
+
+    CREATE TABLE IF NOT EXISTS vin_cache (
+      vin TEXT PRIMARY KEY,
+      make TEXT,
+      model TEXT,
+      year INTEGER,
+      trim TEXT,
+      body_class TEXT,
+      engine_cylinders TEXT,
+      engine_displacement_l REAL,
+      fuel_type TEXT,
+      horse_power TEXT,
+      transmission_style TEXT,
+      plant_country TEXT,
+      raw_data TEXT,
+      cached_at TEXT DEFAULT CURRENT_TIMESTAMP
     );
 
     CREATE TABLE IF NOT EXISTS action_workers (
@@ -270,12 +359,74 @@ function initSchema(db: Database) {
       id TEXT PRIMARY KEY,
       organization_id TEXT,
       part_id TEXT NOT NULL,
+      reference_action_id TEXT,
       action_id TEXT,
       type TEXT NOT NULL CHECK (type IN ('in', 'out', 'adjustment')),
       quantity INTEGER NOT NULL,
       reason TEXT,
       created_by TEXT,
       created_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS card_designs (
+      id TEXT PRIMARY KEY,
+      organization_id TEXT NOT NULL,
+      name TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'draft',
+      layout_preset TEXT NOT NULL DEFAULT 'modern_slate',
+      front_logo_url TEXT,
+      front_image_url TEXT,
+      back_image_url TEXT,
+      front_image_position TEXT DEFAULT 'header_logo',
+      front_image_opacity REAL DEFAULT 1.00,
+      front_image_scale INTEGER DEFAULT 100,
+      back_image_position TEXT DEFAULT 'background_watermark',
+      back_image_opacity REAL DEFAULT 0.20,
+      back_image_scale INTEGER DEFAULT 80,
+      front_rendered_preview_url TEXT,
+      back_rendered_preview_url TEXT,
+      print_specs TEXT,
+      demand_package TEXT,
+      submission_notes TEXT,
+      contact_email TEXT,
+      requested_batch_quantity INTEGER DEFAULT 100,
+      front_headline TEXT,
+      front_subheadline TEXT,
+      front_bg_color TEXT DEFAULT '#0f172a',
+      front_accent_color TEXT DEFAULT '#3b82f6',
+      front_text_color TEXT DEFAULT '#ffffff',
+      back_bg_color TEXT DEFAULT '#0f172a',
+      back_text_color TEXT DEFAULT '#ffffff',
+      back_contact_phone TEXT,
+      back_address TEXT,
+      back_emergency_text TEXT,
+      is_white_label INTEGER DEFAULT 0,
+      rejection_reason TEXT,
+      submitted_at TEXT,
+      approved_at TEXT,
+      reviewed_by TEXT,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS card_orders (
+      id TEXT PRIMARY KEY,
+      organization_id TEXT NOT NULL,
+      card_design_id TEXT NOT NULL,
+      quantity INTEGER NOT NULL,
+      unit_price REAL NOT NULL,
+      total_price REAL NOT NULL,
+      shipping_address TEXT NOT NULL,
+      shipping_wilaya TEXT NOT NULL,
+      shipping_phone TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'pending_payment',
+      tracking_number TEXT,
+      carrier_name TEXT,
+      paid_at TEXT,
+      shipped_at TEXT,
+      delivered_at TEXT,
+      created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT DEFAULT CURRENT_TIMESTAMP
     );
 
     CREATE TABLE IF NOT EXISTS invoices (
@@ -532,6 +683,10 @@ function initSchema(db: Database) {
       ('app_diag', 'dev_okkul', 'Connecteur Scanner OBD-II / DTC', 'connecteur-scanner-obd2', 'Importation directe des codes pannes DTC et anomalies moteur depuis les valises de diagnostic.', 'public', 'published', '["read_vehicles", "write_actions"]'),
       ('app_erp_parts', 'dev_okkul', 'Catalogue & ERP Pièces Détachées', 'erp-pieces-detachees', 'Liaison temps réel avec les réseaux de grossistes et distributeurs de pièces en Algérie.', 'public', 'published', '["read_inventory", "write_inventory", "manage_webhooks"]');
   `);
+
+  // Safe schema migrations for existing databases
+  try { db.run('ALTER TABLE stock_movements ADD COLUMN reference_action_id TEXT;'); } catch {}
+  try { db.run('ALTER TABLE stock_movements ADD COLUMN action_id TEXT;'); } catch {}
 }
 
 function getTableName(query: string): string {
@@ -547,7 +702,10 @@ export async function executeSqliteQuery(queryText: string, values: any[] = []):
   let sql = queryText
     .replace(/\bILIKE\b/gi, 'LIKE')
     .replace(/RETURNING\s+\*/gi, '')
-    .replace(/CURRENT_TIMESTAMP/gi, "datetime('now')")
+    .replace(/\bCURRENT_TIMESTAMP\b/gi, "datetime('now')")
+    .replace(/\bNOW\(\)/gi, "datetime('now')")
+    .replace(/\bGREATEST\s*\(/gi, "MAX(")
+    .replace(/\bLEAST\s*\(/gi, "MIN(")
     .replace(/COALESCE\s*\(\s*SUM\s*\(\s*total\s*\)\s*,\s*0\s*\)/gi, "TOTAL(total)")
     .replace(/COUNT\s*\(\s*DISTINCT\s+vehicle_id\s*\)/gi, "COUNT(DISTINCT vehicle_id)");
 
@@ -569,7 +727,8 @@ export async function executeSqliteQuery(queryText: string, values: any[] = []):
   // Auto-assign primary key ID for inserts if not provided
   if (isInsert) {
     const tableName = getTableName(queryText);
-    if (!sql.toLowerCase().includes('(id,') && !sql.toLowerCase().includes('( id,')) {
+    const tablesWithoutId = ['vin_cache', 'action_workers', 'action_parts', 'invoice_sequences'];
+    if (!tablesWithoutId.includes(tableName.toLowerCase()) && !sql.toLowerCase().includes('(id,') && !sql.toLowerCase().includes('( id,')) {
       generatedId = crypto.randomUUID ? crypto.randomUUID() : `${tableName.slice(0, 3)}_${Date.now()}`;
       sql = sql.replace(new RegExp(`INSERT\\s+INTO\\s+${tableName}\\s*\\(`, 'i'), `INSERT INTO ${tableName} (id, `);
       sql = sql.replace(/VALUES\s*\(/i, 'VALUES (?, ');
@@ -616,14 +775,30 @@ export async function executeSqliteQuery(queryText: string, values: any[] = []):
             return [obj];
           }
         } else if (isUpdate) {
-          const lastVal = paramsToUse[paramsToUse.length - 1];
-          const res = db.exec(`SELECT * FROM ${table} WHERE id = ?`, [lastVal]);
-          if (res.length > 0 && res[0].values.length > 0) {
-            const columns = res[0].columns;
-            const rowValues = res[0].values[0];
-            const obj: any = {};
-            columns.forEach((col, i) => { obj[col] = rowValues[i]; });
-            return [obj];
+          const idMatch = queryText.match(/WHERE\s+(?:[a-zA-Z0-9_]+\.)?id\s*=\s*\$(\d+)/i);
+          let targetId: any = null;
+          if (idMatch) {
+            const paramIdx = parseInt(idMatch[1], 10) - 1;
+            targetId = values[paramIdx];
+          } else {
+            // Check if any parameter looks like an ID
+            for (const val of values) {
+              if (typeof val === 'string' && val.length > 10) {
+                targetId = val;
+                break;
+              }
+            }
+          }
+
+          if (targetId) {
+            const stmt = db.prepare(`SELECT * FROM ${table} WHERE id = ?`);
+            stmt.bind([targetId]);
+            const results: any[] = [];
+            while (stmt.step()) {
+              results.push(stmt.getAsObject());
+            }
+            stmt.free();
+            if (results.length > 0) return results;
           }
         }
       }

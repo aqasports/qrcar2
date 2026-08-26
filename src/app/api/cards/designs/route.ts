@@ -49,6 +49,14 @@ export async function POST(req: NextRequest) {
       name,
       layout_preset,
       front_logo_url,
+      front_image_url,
+      back_image_url,
+      front_image_position,
+      front_image_opacity,
+      front_image_scale,
+      back_image_position,
+      back_image_opacity,
+      back_image_scale,
       front_headline,
       front_subheadline,
       front_bg_color,
@@ -60,6 +68,9 @@ export async function POST(req: NextRequest) {
       back_address,
       back_emergency_text,
       is_white_label,
+      contact_email,
+      submission_notes,
+      requested_batch_quantity,
     } = body;
 
     if (!name) {
@@ -72,6 +83,8 @@ export async function POST(req: NextRequest) {
 
     const wantsCustomColorsOrLogo = Boolean(
       front_logo_url ||
+        front_image_url ||
+        back_image_url ||
         (front_bg_color && front_bg_color !== '#0f172a') ||
         (front_accent_color && front_accent_color !== '#3b82f6')
     );
@@ -93,19 +106,41 @@ export async function POST(req: NextRequest) {
       `
       INSERT INTO card_designs (
         organization_id, name, status, layout_preset,
-        front_logo_url, front_headline, front_subheadline,
+        front_logo_url, front_image_url, back_image_url,
+        front_image_position, front_image_opacity, front_image_scale,
+        back_image_position, back_image_opacity, back_image_scale,
+        front_headline, front_subheadline,
         front_bg_color, front_accent_color, front_text_color,
         back_bg_color, back_text_color, back_contact_phone,
-        back_address, back_emergency_text, is_white_label
+        back_address, back_emergency_text, is_white_label,
+        contact_email, submission_notes, requested_batch_quantity
       )
-      VALUES ($1, $2, 'draft', $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+      VALUES (
+        $1, $2, 'draft', $3,
+        $4, $5, $6,
+        $7, $8, $9,
+        $10, $11, $12,
+        $13, $14,
+        $15, $16, $17,
+        $18, $19, $20,
+        $21, $22, $23,
+        $24, $25, $26
+      )
       RETURNING *
     `,
       [
         organizationId,
         name.trim(),
         layout_preset || 'modern_slate',
-        front_logo_url || null,
+        front_image_url || front_logo_url || null,
+        front_image_url || front_logo_url || null,
+        back_image_url || null,
+        front_image_position || 'header_logo',
+        parseFloat(front_image_opacity) || 1.0,
+        parseInt(front_image_scale, 10) || 100,
+        back_image_position || 'background_watermark',
+        parseFloat(back_image_opacity) || 0.2,
+        parseInt(back_image_scale, 10) || 80,
         front_headline || null,
         front_subheadline || null,
         front_bg_color || '#0f172a',
@@ -117,6 +152,9 @@ export async function POST(req: NextRequest) {
         back_address || null,
         back_emergency_text || null,
         effectiveWhiteLabel,
+        contact_email || null,
+        submission_notes || null,
+        parseInt(requested_batch_quantity, 10) || 100,
       ]
     );
 

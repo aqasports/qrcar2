@@ -11,6 +11,7 @@ import {
   Spinner,
   EmptyState,
 } from '@/components/ui';
+import { useI18n } from '@/lib/i18n/I18nProvider';
 
 interface Conversation {
   id: string;
@@ -45,6 +46,7 @@ interface Message {
 export default function DirectMessagesPage() {
   const { data: session } = useSession();
   const searchParams = useSearchParams();
+  const { t } = useI18n();
 
   const activeOrgId = session?.user?.organizationId;
   const newToOrg = searchParams.get('new_to_org');
@@ -172,20 +174,20 @@ export default function DirectMessagesPage() {
   };
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto pb-16">
+    <div className="space-y-6 max-w-7xl mx-auto pb-16 font-sans">
       <PageHeader
-        title="Messagerie Directe B2B Inter-Ateliers"
-        subtitle="Échangez instantanément entre chefs d'atelier sur les pièces de rechange, diagnostics et disponibilités"
+        title={t.messages.title}
+        subtitle={t.messages.subtitle}
         breadcrumbs={[
-          { label: 'Tableau de bord', href: '/admin' },
-          { label: 'Messagerie' },
+          { label: t.common.dashboard, href: '/admin' },
+          { label: t.sidebar.messages },
         ]}
       />
 
       {loading ? (
         <div className="flex flex-col items-center justify-center min-h-[50vh] gap-3">
           <Spinner size="lg" />
-          <p className="text-xs text-text-muted">Chargement des conversations...</p>
+          <p className="text-xs text-text-muted">{t.common.loading}</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 min-h-[600px] bg-surface-raised border border-border-subtle rounded-3xl overflow-hidden shadow-2xl">
@@ -193,14 +195,14 @@ export default function DirectMessagesPage() {
           <div className="lg:col-span-4 border-r border-border-subtle flex flex-col bg-surface-raised">
             <div className="p-4 border-b border-border-subtle">
               <span className="text-xs font-bold text-text-secondary uppercase tracking-wider">
-                Discussions Actives ({conversations.length})
+                {t.messages.activeDiscussions} ({conversations.length})
               </span>
             </div>
 
             <div className="flex-1 overflow-y-auto divide-y divide-border-subtle/50">
               {conversations.length === 0 ? (
                 <div className="p-8 text-center text-xs text-text-muted">
-                  Aucune conversation en cours. Contactez un atelier depuis la Marketplace ou l&apos;Annuaire.
+                  {t.messages.noConversations}
                 </div>
               ) : (
                 conversations.map((c) => {
@@ -237,7 +239,7 @@ export default function DirectMessagesPage() {
                         )}
 
                         <p className="text-xs text-text-muted truncate mt-1">
-                          {c.last_message_text || 'Nouvelle conversation initiée'}
+                          {c.last_message_text || 'Nouvelle conversation'}
                         </p>
                       </div>
                     </button>
@@ -295,13 +297,13 @@ export default function DirectMessagesPage() {
 
                           {m.dtc_attachment && (
                             <div className="p-2 rounded-xl bg-black/20 font-mono text-[11px] font-bold">
-                              Code DTC attaché : {m.dtc_attachment}
+                              Code DTC : {m.dtc_attachment}
                             </div>
                           )}
 
                           {m.part_ref_attachment && (
                             <div className="p-2 rounded-xl bg-black/20 font-mono text-[11px] font-bold">
-                              Réf. Pièce attachée : {m.part_ref_attachment}
+                              Réf. Pièce : {m.part_ref_attachment}
                             </div>
                           )}
                         </div>
@@ -336,7 +338,7 @@ export default function DirectMessagesPage() {
                     <button
                       type="button"
                       onClick={() => setShowAttachments(!showAttachments)}
-                      className="p-2.5 rounded-xl border border-border-subtle text-text-muted hover:text-text-primary hover:bg-surface-overlay transition"
+                      className="p-2.5 rounded-xl border border-border-subtle text-text-muted hover:text-text-primary hover:bg-surface-overlay transition cursor-pointer"
                       title="Attacher un code DTC ou une référence pièce"
                     >
                       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -346,14 +348,14 @@ export default function DirectMessagesPage() {
 
                     <div className="flex-1">
                       <Input
-                        placeholder="Rédigez votre message à l'atelier..."
+                        placeholder={t.messages.typeMessage}
                         value={messageText}
                         onChange={(e) => setMessageText(e.target.value)}
                       />
                     </div>
 
                     <Button type="submit" isLoading={sending}>
-                      Envoyer
+                      {t.messages.send}
                     </Button>
                   </div>
                 </form>
@@ -361,7 +363,7 @@ export default function DirectMessagesPage() {
             ) : (
               <div className="flex flex-col items-center justify-center h-full p-8 text-center">
                 <EmptyState
-                  title="Sélectionnez une discussion"
+                  title={t.messages.selectConversation}
                   description="Choisissez un atelier partenaire dans la colonne de gauche pour afficher les messages."
                 />
               </div>

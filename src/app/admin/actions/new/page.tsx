@@ -15,6 +15,8 @@ import { RepairOrderLineItems, RepairOrderLineItem, CatalogPartOption } from '@/
 import { CostBreakdownBar } from '@/components/repair-order/CostBreakdownBar';
 import { VehicleLookupPanel } from '@/components/repair-order/VehicleLookupPanel';
 import { TorqueSpecsPanel } from '@/components/repair-order/TorqueSpecsPanel';
+import { RepairQualityCheckpoints, QualityCheckpointItem } from '@/components/repair-order/RepairQualityCheckpoints';
+import { VehicleIntakeMap, VehicleDamageMarker } from '@/components/repair-order/VehicleIntakeMap';
 import crypto from 'crypto';
 
 interface VehicleOption {
@@ -77,8 +79,10 @@ export default function NewRepairOrderPage() {
   // Line Items
   const [lineItems, setLineItems] = useState<RepairOrderLineItem[]>([]);
 
-  // Quality Checkpoints
-  const [checkpoints, setCheckpoints] = useState<Array<{ id: string; label: string; category: string; status: 'ok' | 'warn' | 'fail' }>>([]);
+  // Quality Checkpoints & Visual Intake Map
+  const [checkpoints, setCheckpoints] = useState<QualityCheckpointItem[]>([]);
+  const [damageMarkers, setDamageMarkers] = useState<VehicleDamageMarker[]>([]);
+  const [showIntakeMap, setShowIntakeMap] = useState(false);
 
   // Notes
   const [clientVisibleNotes, setClientVisibleNotes] = useState('');
@@ -185,9 +189,9 @@ export default function NewRepairOrderPage() {
           setCheckpoints(
             fullTmpl.checkpoints.map((cp: any) => ({
               id: cp.id || crypto.randomUUID(),
-              label: cp.label,
-              category: cp.category || 'Contrôle',
-              status: 'ok',
+              name: cp.label || cp.name || 'Point de contrôle',
+              category: (cp.category || 'general') as any,
+              status: 'conforme' as const,
             }))
           );
         }
@@ -238,16 +242,38 @@ export default function NewRepairOrderPage() {
 
     // Format Checkpoints into Client Notes if present
     let finalClientNotes = clientVisibleNotes.trim();
-    if (checkpoints.length > 0) {
-      const formattedCp = checkpoints
-        .map((c) => {
-          const tag = c.status === 'ok' ? '[CONFORME]' : c.status === 'warn' ? '[VIGILANCE]' : '[DÉFAUT / REMPLACÉ]';
-          return `${tag} ${c.category} : ${c.label}`;
-        })
+    if (damageMarkers.length > 0) {
+      const damageText = damageMarkers
+        .map(
+          (m) =>
+            `- Vue ${m.view.toUpperCase()} : ${m.damageType} (${m.severity})${
+              m.description ? ` : ${m.description}` : ''
+            }`
+        )
         .join('\n');
       finalClientNotes = finalClientNotes
-        ? `${finalClientNotes}\n\nPoints de Contrôle Qualité :\n${formattedCp}`
-        : `Points de Contrôle Qualité :\n${formattedCp}`;
+        ? `${finalClientNotes}\n\nRelevé État des Lieux Entrée :\n${damageText}`
+        : `Relevé État des Lieux Entrée :\n${damageText}`;
+    }
+
+    if (checkpoints.length > 0) {
+      const checkedPoints = checkpoints.filter((c) => c.status !== 'unchecked');
+      if (checkedPoints.length > 0) {
+        const formattedCp = checkedPoints
+          .map((c) => {
+            const tag =
+              c.status === 'conforme'
+                ? '[CONFORME]'
+                : c.status === 'warning'
+                ? '[VIGILANCE]'
+                : '[DÉFAUT À TRAITER]';
+            return `${tag} ${c.name}${c.note ? ` (${c.note})` : ''}`;
+          })
+          .join('\n');
+        finalClientNotes = finalClientNotes
+          ? `${finalClientNotes}\n\nPoints de Contrôle Qualité :\n${formattedCp}`
+          : `Points de Contrôle Qualité :\n${formattedCp}`;
+      }
     }
 
     try {
@@ -416,6 +442,34 @@ export default function NewRepairOrderPage() {
             />
           )}
 
+          {/* Visual Damage Intake Map Button & Panel */}
+          {selectedVehicle && (
+            <div className="pt-2">
+              <Button
+                type="button"
+                variant="secondary"
+                size="xs"
+                onClick={() => setShowIntakeMap(!showIntakeMap)}
+                leftIcon={
+                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                }
+              >
+                {showIntakeMap ? 'Masquer le relevé carrosserie' : `État des lieux carrosserie entrée (${damageMarkers.length} relevé${damageMarkers.length > 1 ? 's' : ''})`}
+              </Button>
+
+              {showIntakeMap && (
+                <div className="mt-3">
+                  <VehicleIntakeMap
+                    markers={damageMarkers}
+                    onChange={setDamageMarkers}
+                  />
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Service Mileage & Status */}
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2">
             <Input
@@ -554,84 +608,10 @@ export default function NewRepairOrderPage() {
       </Card>
 
       {/* Section 6: Quality Checkpoints Inspection */}
-      {checkpoints.length > 0 && (
-        <Card className="p-5 space-y-4 border border-border-default">
-          <div className="flex items-center justify-between pb-2 border-b border-border-subtle">
-            <h3 className="text-xs font-bold text-text-primary uppercase tracking-wider flex items-center gap-2">
-              <svg className="w-4 h-4 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              Contrôle Qualité & Check-List Atelier ({checkpoints.length} points)
-            </h3>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {checkpoints.map((cp) => (
-              <div
-                key={cp.id}
-                className="p-3 rounded-xl bg-surface-base border border-border-subtle flex items-center justify-between gap-3"
-              >
-                <div className="space-y-0.5">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-accent block">
-                    {cp.category}
-                  </span>
-                  <span className="text-xs text-text-primary font-medium block">
-                    {cp.label}
-                  </span>
-                </div>
-
-                <div className="flex items-center gap-1 shrink-0">
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setCheckpoints((prev) =>
-                        prev.map((c) => (c.id === cp.id ? { ...c, status: 'ok' } : c))
-                      )
-                    }
-                    className={`px-2 py-1 rounded text-[11px] font-bold transition ${
-                      cp.status === 'ok'
-                        ? 'bg-success text-white shadow-sm'
-                        : 'bg-surface-raised text-text-muted hover:text-text-primary'
-                    }`}
-                  >
-                    OK
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setCheckpoints((prev) =>
-                        prev.map((c) => (c.id === cp.id ? { ...c, status: 'warn' } : c))
-                      )
-                    }
-                    className={`px-2 py-1 rounded text-[11px] font-bold transition ${
-                      cp.status === 'warn'
-                        ? 'bg-warning text-slate-900 shadow-sm'
-                        : 'bg-surface-raised text-text-muted hover:text-text-primary'
-                    }`}
-                  >
-                    Vigilance
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setCheckpoints((prev) =>
-                        prev.map((c) => (c.id === cp.id ? { ...c, status: 'fail' } : c))
-                      )
-                    }
-                    className={`px-2 py-1 rounded text-[11px] font-bold transition ${
-                      cp.status === 'fail'
-                        ? 'bg-danger text-white shadow-sm'
-                        : 'bg-surface-raised text-text-muted hover:text-text-primary'
-                    }`}
-                  >
-                    Défaut
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </Card>
-      )}
+      <RepairQualityCheckpoints
+        checkpoints={checkpoints}
+        onChange={setCheckpoints}
+      />
 
       {/* Section 7: Notes */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

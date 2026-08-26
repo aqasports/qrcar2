@@ -20,6 +20,7 @@ import { VehicleLookupPanel } from '@/components/repair-order/VehicleLookupPanel
 import { ActionHeader } from '@/components/actions/ActionHeader';
 import { AssignWorkerModal, WorkerOption } from '@/components/actions/AssignWorkerModal';
 import { RepairQualityCheckpoints, QualityCheckpointItem } from '@/components/repair-order/RepairQualityCheckpoints';
+import { ActionLaborTimer } from '@/components/repair-order/ActionLaborTimer';
 
 export default function ActionDetailPage() {
   const { data: session } = useSession();
@@ -520,6 +521,23 @@ export default function ActionDetailPage() {
 
         {/* Right 1 Col: Financials & Personnel */}
         <div className="space-y-6 lg:col-span-1">
+          {/* Active Job Punch-Clock & Labor Stopwatch */}
+          <ActionLaborTimer
+            actionId={actionId}
+            hourlyRateDzd={2500}
+            onHoursUpdate={(h) => {
+              const computedLabor = Math.round(h * 2500);
+              if (computedLabor > 0 && role !== 'technician') {
+                setLaborCost(computedLabor);
+                fetch(`/api/actions/${actionId}`, {
+                  method: 'PATCH',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ labor_cost: computedLabor }),
+                }).catch(console.error);
+              }
+            }}
+          />
+
           {/* Real-time Financial Breakdown & Tax Switcher */}
           {role !== 'technician' && (
             <CostBreakdownBar

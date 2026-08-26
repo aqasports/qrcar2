@@ -21,6 +21,7 @@ import {
   Modal,
 } from '@/components/ui';
 import { useI18n } from '@/lib/i18n/I18nProvider';
+import { AppointmentCalendarView } from '@/components/appointments/AppointmentCalendarView';
 
 interface Appointment {
   id: string;
@@ -50,6 +51,7 @@ export default function AdminAppointmentsPage() {
 
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [loading, setLoading] = useState(true);
+  const [viewMode, setViewMode] = useState<'calendar' | 'table'>('calendar');
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [actionError, setActionError] = useState('');
@@ -183,8 +185,8 @@ export default function AdminAppointmentsPage() {
         </div>
       )}
 
-      {/* Filters */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      {/* Filters & View Switcher */}
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div className="flex items-center gap-3 flex-1 max-w-md">
           <Input
             placeholder={t.appointments.searchPlaceholder}
@@ -193,32 +195,71 @@ export default function AdminAppointmentsPage() {
           />
         </div>
 
-        <div className="w-48">
-          <Select
-            value={filterStatus}
-            onChange={(e) => setFilterStatus(e.target.value)}
-          >
-            <option value="all">{t.common.all} ({appointments.length})</option>
-            <option value="pending">{t.appointments.statusPending}</option>
-            <option value="confirmed">{t.appointments.statusConfirmed}</option>
-            <option value="completed">{t.appointments.statusCompleted}</option>
-            <option value="cancelled">{t.appointments.statusCancelled}</option>
-          </Select>
+        <div className="flex items-center gap-3 flex-wrap justify-between md:justify-end">
+          <div className="w-44">
+            <Select
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value)}
+            >
+              <option value="all">{t.common.all} ({appointments.length})</option>
+              <option value="pending">{t.appointments.statusPending}</option>
+              <option value="confirmed">{t.appointments.statusConfirmed}</option>
+              <option value="completed">{t.appointments.statusCompleted}</option>
+              <option value="cancelled">{t.appointments.statusCancelled}</option>
+            </Select>
+          </div>
+
+          <div className="flex items-center gap-1 p-1 rounded-xl bg-surface-raised border border-border-subtle">
+            <button
+              type="button"
+              onClick={() => setViewMode('calendar')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
+                viewMode === 'calendar'
+                  ? 'bg-accent text-white shadow-sm'
+                  : 'text-text-muted hover:text-text-primary'
+              }`}
+            >
+              Planning Semaine
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode('table')}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition ${
+                viewMode === 'table'
+                  ? 'bg-accent text-white shadow-sm'
+                  : 'text-text-muted hover:text-text-primary'
+              }`}
+            >
+              Vue Liste
+            </button>
+          </div>
         </div>
       </div>
 
-      {/* Table */}
-      <Table>
-        <TableHeader>
-          <tr>
-            <TableHead>{t.appointments.preferredDate}</TableHead>
-            <TableHead>{t.appointments.vehicle}</TableHead>
-            <TableHead>{t.appointments.client}</TableHead>
-            <TableHead>{t.appointments.serviceType}</TableHead>
-            <TableHead>{t.common.status}</TableHead>
-            <TableHead className="text-right">{t.common.actions_label}</TableHead>
-          </tr>
-        </TableHeader>
+      {viewMode === 'calendar' ? (
+        <AppointmentCalendarView
+          appointments={filteredAppointments}
+          onSelectAppointment={(apt) => {
+            setSelectedAppointment(apt as Appointment);
+            setResponseStatus('confirmed');
+            setResponseText('');
+            setResponseModalOpen(true);
+          }}
+          onConvertAppointment={handleConvertToServiceAction}
+        />
+      ) : (
+        /* Table */
+        <Table>
+          <TableHeader>
+            <tr>
+              <TableHead>{t.appointments.preferredDate}</TableHead>
+              <TableHead>{t.appointments.vehicle}</TableHead>
+              <TableHead>{t.appointments.client}</TableHead>
+              <TableHead>{t.appointments.serviceType}</TableHead>
+              <TableHead>{t.common.status}</TableHead>
+              <TableHead className="text-right">{t.common.actions_label}</TableHead>
+            </tr>
+          </TableHeader>
         <TableBody>
           {loading ? (
             <TableLoadingState colSpan={6} message={t.common.loading} />
@@ -307,6 +348,7 @@ export default function AdminAppointmentsPage() {
           )}
         </TableBody>
       </Table>
+      )}
 
       {/* Response Modal */}
       <Modal

@@ -6,6 +6,7 @@ import LocaleSwitcher from '@/components/LocaleSwitcher';
 import CommandPalette from '@/components/CommandPalette';
 import { Button } from '@/components/ui';
 import { useI18n } from '@/lib/i18n/I18nProvider';
+import { BranchSwitcher } from '@/components/BranchSwitcher';
 
 export default function AdminCockpitHeader({
   orgName,
@@ -42,12 +43,12 @@ export default function AdminCockpitHeader({
       <CommandPalette isOpen={paletteOpen} onClose={() => setPaletteOpen(false)} />
 
       <header className="h-16 border-b border-white/[0.08] flex items-center justify-between px-6 bg-[#090d16]/80 backdrop-blur-xl shrink-0 z-30 font-sans">
-        {/* Left Side: Global Search / Command Bar Trigger */}
-        <div className="flex items-center gap-4">
+        {/* Left Side: Global Search / Command Bar Trigger & Branch Switcher */}
+        <div className="flex items-center gap-3 sm:gap-4">
           <button
             type="button"
             onClick={() => setPaletteOpen(true)}
-            className="flex items-center gap-3 px-3.5 py-1.5 rounded-xl bg-white/[0.03] border border-white/[0.08] hover:border-accent/40 text-text-muted hover:text-text-primary transition shadow-inner w-64 sm:w-80 group text-xs font-medium cursor-pointer"
+            className="flex items-center gap-3 px-3.5 py-1.5 rounded-xl bg-white/[0.03] border border-white/[0.08] hover:border-accent/40 text-text-muted hover:text-text-primary transition shadow-inner w-56 sm:w-72 group text-xs font-medium cursor-pointer"
           >
             <svg className="w-4 h-4 text-text-muted group-hover:text-accent transition" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
@@ -58,8 +59,13 @@ export default function AdminCockpitHeader({
             </kbd>
           </button>
 
+          {/* Branch Switcher */}
+          <div className="hidden md:block">
+            <BranchSwitcher planSlug={planSlug} />
+          </div>
+
           {/* Telemetry Status Indicator */}
-          <div className="hidden lg:flex items-center gap-2 px-3 py-1 rounded-full bg-surface-raised/80 border border-white/[0.08] text-[11px] font-mono text-text-muted">
+          <div className="hidden xl:flex items-center gap-2 px-3 py-1 rounded-full bg-surface-raised/80 border border-white/[0.08] text-[11px] font-mono text-text-muted">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.8)] animate-pulse" />
             <span>{t.cockpit.systemOnline}</span>
           </div>

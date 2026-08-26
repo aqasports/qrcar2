@@ -19,6 +19,7 @@ import { TorqueSpecsPanel } from '@/components/repair-order/TorqueSpecsPanel';
 import { VehicleLookupPanel } from '@/components/repair-order/VehicleLookupPanel';
 import { ActionHeader } from '@/components/actions/ActionHeader';
 import { AssignWorkerModal, WorkerOption } from '@/components/actions/AssignWorkerModal';
+import { RepairQualityCheckpoints, QualityCheckpointItem } from '@/components/repair-order/RepairQualityCheckpoints';
 
 export default function ActionDetailPage() {
   const { data: session } = useSession();
@@ -45,6 +46,7 @@ export default function ActionDetailPage() {
   const [laborCost, setLaborCost] = useState(0);
   const [hasTax, setHasTax] = useState(true);
   const [taxRate, setTaxRate] = useState(19.0);
+  const [qualityCheckpoints, setQualityCheckpoints] = useState<QualityCheckpointItem[]>([]);
   const [savingDetails, setSavingDetails] = useState(false);
   const [generatingInvoice, setGeneratingInvoice] = useState(false);
 
@@ -77,6 +79,18 @@ export default function ActionDetailPage() {
         setLaborCost(parseFloat(act.labor_cost || '0'));
         setHasTax(act.has_tax !== false && act.has_tax !== 0);
         setTaxRate(parseFloat(act.tax_rate || '19.00'));
+
+        if (act.quality_checkpoints) {
+          try {
+            const parsed =
+              typeof act.quality_checkpoints === 'string'
+                ? JSON.parse(act.quality_checkpoints)
+                : act.quality_checkpoints;
+            if (Array.isArray(parsed) && parsed.length > 0) {
+              setQualityCheckpoints(parsed);
+            }
+          } catch (e) {}
+        }
       }
     } catch (err) {
       console.error(err);
@@ -85,6 +99,19 @@ export default function ActionDetailPage() {
       setLoading(false);
     }
   }, [actionId]);
+
+  const handleCheckpointsChange = async (updated: QualityCheckpointItem[]) => {
+    setQualityCheckpoints(updated);
+    try {
+      await fetch(`/api/actions/${actionId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ quality_checkpoints: updated }),
+      });
+    } catch (err) {
+      console.error('Failed to sync quality checkpoints:', err);
+    }
+  };
 
   useEffect(() => {
     fetchAction();
@@ -483,6 +510,12 @@ export default function ActionDetailPage() {
               )}
             </div>
           </Card>
+
+          {/* Quality Checkpoints & Inspection Panel */}
+          <RepairQualityCheckpoints
+            checkpoints={qualityCheckpoints}
+            onChange={handleCheckpointsChange}
+          />
         </div>
 
         {/* Right 1 Col: Financials & Personnel */}
